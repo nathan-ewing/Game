@@ -68,6 +68,119 @@ h2 { font-size:24px; margin-bottom:6px; }
 .lb-name  { width:52px; font-weight:bold; letter-spacing:3px; color:#fff; }
 .lb-time  { flex:1; color:#4af; text-align:right; }
 .lb-kills { width:82px; color:#888; text-align:right; font-size:12px; }
+
+/* ── Keyframe animations ─────────────────────────────────────────────────── */
+@keyframes panelIn {
+  from { opacity:0; transform:translate(-50%,-56%) scale(0.90); }
+  to   { opacity:1; transform:translate(-50%,-50%) scale(1);    }
+}
+@keyframes titleGlow {
+  0%,100% { text-shadow:0 0 28px rgba(74,170,255,0.55), 0 0 60px rgba(74,170,255,0.2); }
+  50%     { text-shadow:0 0 55px rgba(74,170,255,1), 0 0 120px rgba(74,170,255,0.45), 0 0 4px rgba(255,255,255,0.5); }
+}
+@keyframes playPulse {
+  0%,100% { box-shadow:0 4px 20px rgba(74,170,255,0.30); }
+  50%     { box-shadow:0 4px 40px rgba(74,170,255,0.65), 0 0 0 5px rgba(74,170,255,0.09); }
+}
+@keyframes rowIn {
+  from { opacity:0; transform:translateX(-12px); }
+  to   { opacity:1; transform:translateX(0); }
+}
+@keyframes crownFloat {
+  0%,100% { transform:translateY(0);    filter:drop-shadow(0 0 8px rgba(255,215,0,0.7)); }
+  50%     { transform:translateY(-5px); filter:drop-shadow(0 0 16px rgba(255,215,0,1)); }
+}
+
+/* ── Title panel premium upgrade ─────────────────────────────────────────── */
+h1 { animation:titleGlow 3.5s ease-in-out infinite; }
+
+#title-panel {
+  border:1px solid rgba(74,170,255,0.28);
+  background:linear-gradient(158deg,rgba(12,16,32,0.99) 0%,rgba(8,10,20,0.99) 100%);
+  box-shadow:0 0 80px rgba(74,170,255,0.06), 0 24px 64px rgba(0,0,0,0.75);
+}
+
+.title-btns { display:flex; flex-direction:column; align-items:center; gap:12px; }
+
+.btn-play {
+  background:linear-gradient(135deg, #4af 0%, #28e 100%);
+  color:#fff; border:none;
+  padding:14px 56px; font-size:18px;
+  font-family:inherit; font-weight:bold;
+  letter-spacing:4px; border-radius:8px;
+  cursor:pointer; width:100%;
+  animation:playPulse 2.8s ease-in-out infinite;
+  transition:transform .12s, filter .12s;
+}
+.btn-play:hover { transform:translateY(-2px); filter:brightness(1.15); }
+.btn-play:active { transform:translateY(1px); }
+
+.btn-ghost {
+  background:transparent;
+  color:rgba(74,170,255,0.65);
+  border:1.5px solid rgba(74,170,255,0.25);
+  padding:10px 32px; font-size:12px;
+  font-family:inherit; font-weight:bold;
+  letter-spacing:3px; border-radius:6px;
+  cursor:pointer; width:100%;
+  transition:all .15s;
+}
+.btn-ghost:hover { background:rgba(74,170,255,0.07); border-color:rgba(74,170,255,0.55); color:#4af; }
+
+/* ── High scores panel ───────────────────────────────────────────────────── */
+#hs-panel {
+  border:1px solid rgba(255,215,0,0.2);
+  background:linear-gradient(158deg, rgba(14,12,26,0.99) 0%, rgba(8,10,20,0.99) 100%);
+  box-shadow:0 0 80px rgba(255,215,0,0.05), 0 24px 64px rgba(0,0,0,0.8);
+  max-width:480px; max-height:88vh; overflow-y:auto;
+  scrollbar-width:thin; scrollbar-color:rgba(255,215,0,0.2) transparent;
+}
+
+.hs-crown { font-size:28px; animation:crownFloat 2.8s ease-in-out infinite; margin-bottom:6px; }
+.hs-heading { font-size:13px; font-weight:bold; letter-spacing:7px; color:#ffd700;
+  text-shadow:0 0 24px rgba(255,215,0,0.7); }
+.hs-subhead { font-size:10px; letter-spacing:3px; color:#443d1a; margin-top:4px; }
+
+.hs-medal {
+  width:30px; height:30px; border-radius:50%; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  font-size:13px; font-weight:900;
+}
+.medal-1 { background:linear-gradient(135deg,#ffe566,#c8900a); color:#2a1800;
+  box-shadow:0 0 14px rgba(255,200,0,0.6); }
+.medal-2 { background:linear-gradient(135deg,#e8e8e8,#8a8a8a); color:#1a1a1a;
+  box-shadow:0 0 8px rgba(180,180,180,0.35); }
+.medal-3 { background:linear-gradient(135deg,#d4864a,#7a3d10); color:#ffe8d0;
+  box-shadow:0 0 8px rgba(190,100,40,0.45); }
+.medal-n { color:#3a3a3a; font-size:11px; }
+
+.hs-row {
+  display:flex; align-items:center; gap:14px;
+  padding:12px 16px; border-radius:9px; margin:5px 0;
+  animation:rowIn .3s ease backwards;
+}
+.hs-row-1 { background:linear-gradient(90deg,rgba(255,215,0,0.13),rgba(255,215,0,0.03));
+  border:1px solid rgba(255,215,0,0.18); }
+.hs-row-2 { background:linear-gradient(90deg,rgba(180,180,180,0.10),rgba(180,180,180,0.02));
+  border:1px solid rgba(180,180,180,0.12); }
+.hs-row-3 { background:linear-gradient(90deg,rgba(190,100,40,0.13),rgba(190,100,40,0.03));
+  border:1px solid rgba(190,100,40,0.15); }
+.hs-row-n { background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.04);
+  transition:background .12s; }
+.hs-row-n:hover { background:rgba(255,255,255,0.05); }
+.hs-row.hs-new  { background:rgba(255,220,50,0.10) !important; border:1px solid rgba(255,220,50,0.28) !important; }
+
+.hs-name { min-width:56px; font-size:20px; font-weight:bold; letter-spacing:4px; }
+.hs-name-1 { color:#ffd700; }
+.hs-name-2 { color:#d8d8d8; }
+.hs-name-3 { color:#cd7f32; }
+.hs-name-n { color:#bbb; }
+.hs-time { flex:1; text-align:right; font-size:18px; font-weight:bold; color:#4af;
+  text-shadow:0 0 12px rgba(74,170,255,0.4); }
+.hs-meta { color:#555; font-size:11px; min-width:70px; text-align:right; line-height:1.7; }
+
+.hs-empty { padding:40px 20px; color:#444; font-size:14px; line-height:2; }
+.hs-divider { height:1px; background:linear-gradient(90deg,transparent,rgba(255,215,0,0.15),transparent); margin:18px 0; }
 </style>
 </head>
 <body>
@@ -81,7 +194,24 @@ h2 { font-size:24px; margin-bottom:6px; }
     <div><span>Weapons fire automatically</span></div>
     <div><span>Green diamonds</span> = XP &mdash; walk near to collect</div>
   </div>
-  <button class="btn" onclick="startGame()">PLAY</button>
+  <div class="title-btns">
+    <button class="btn-play" onclick="startGame()">PLAY</button>
+    <button class="btn-ghost" onclick="showHighScores()">HIGH SCORES</button>
+  </div>
+</div>
+
+<div id="hs-panel" class="panel" style="display:none">
+  <div style="margin-bottom:22px">
+    <div class="hs-crown">♛</div>
+    <div class="hs-heading">HIGH SCORES</div>
+    <div class="hs-subhead">TOP SURVIVORS</div>
+  </div>
+  <div class="hs-divider"></div>
+  <div id="hs-list" style="margin:14px 0"></div>
+  <div class="hs-divider"></div>
+  <div style="margin-top:18px">
+    <button class="btn-ghost" onclick="closeHighScores()">BACK TO MENU</button>
+  </div>
 </div>
 
 <div id="levelup-panel" class="panel">
@@ -318,6 +448,47 @@ function showLevelUp() {
 }
 
 // ── High scores ───────────────────────────────────────────────────────────────
+function animatePanel(el) {
+  el.style.display = 'block';
+  el.style.animation = 'none';
+  void el.offsetWidth;
+  el.style.animation = 'panelIn 0.28s cubic-bezier(0.34,1.56,0.64,1) both';
+}
+
+function showHighScores() {
+  const scores = loadScores();
+  const list = document.getElementById('hs-list');
+  list.innerHTML = '';
+  if (scores.length === 0) {
+    list.innerHTML = '<div class="hs-empty">No scores yet.<br>Survive long enough to earn your place.</div>';
+  } else {
+    scores.forEach((s, i) => {
+      const mins = Math.floor(s.time/60), secs = Math.floor(s.time%60).toString().padStart(2,'0');
+      const rank = i + 1;
+      const rowCls  = rank <= 3 ? `hs-row-${rank}` : 'hs-row-n';
+      const nameCls = rank <= 3 ? `hs-name-${rank}` : 'hs-name-n';
+      const medCls  = rank <= 3 ? `medal-${rank}`   : 'medal-n';
+      const medSym  = rank === 1 ? '♛' : rank === 2 ? '★' : rank === 3 ? '◆' : rank;
+      const row = document.createElement('div');
+      row.className = `hs-row ${rowCls}`;
+      row.style.animationDelay = `${i * 0.055}s`;
+      row.innerHTML =
+        `<div class="hs-medal ${medCls}">${medSym}</div>`+
+        `<div class="hs-name ${nameCls}">${s.name}</div>`+
+        `<div class="hs-time">${mins}:${secs}</div>`+
+        `<div class="hs-meta">${s.kills} kills<br>LV ${s.level}</div>`;
+      list.appendChild(row);
+    });
+  }
+  document.getElementById('title-panel').style.display = 'none';
+  animatePanel(document.getElementById('hs-panel'));
+}
+
+function closeHighScores() {
+  document.getElementById('hs-panel').style.display = 'none';
+  animatePanel(document.getElementById('title-panel'));
+}
+
 function loadScores() {
   try { return JSON.parse(localStorage.getItem('laststand_hs') || '[]'); } catch(e) { return []; }
 }

@@ -161,6 +161,9 @@ function startGame() {
   document.getElementById('title-panel').style.display='none';
   document.getElementById('levelup-panel').style.display='none';
   document.getElementById('gameover-panel').style.display='none';
+  stopMusic();
+  initAudio();
+  startMusic();
   lastTs=0;
   requestAnimationFrame(loop);
 }
@@ -246,6 +249,7 @@ function spawnBatch() {
 // ── Level-up UI ───────────────────────────────────────────────────────────────
 function showLevelUp() {
   mode='levelup';
+  sfxLevelUp();
   const panel=document.getElementById('levelup-panel');
   const list=document.getElementById('up-list');
   list.innerHTML='';
@@ -267,6 +271,7 @@ function showLevelUp() {
 
 function die() {
   mode='dead';
+  stopMusic();
   const mins=Math.floor(gt/60), secs=Math.floor(gt%60).toString().padStart(2,'0');
   document.getElementById('go-stats').innerHTML=
     `<div class="stat">Time: <b>${mins}:${secs}</b></div>
@@ -410,6 +415,7 @@ function update(dt) {
     if(dist(f,P)<P.r+f.r+4){
       P.hp=Math.min(P.mhp, P.hp+f.heal);
       burst(f.x,f.y,f.col,8,70,0.45);
+      sfxChomp();
       fruits.splice(i,1);
     }
   }
@@ -422,6 +428,7 @@ function update(dt) {
       for(const g of gems) P.xp+=g.v;
       gems.length=0;
       burst(v.x,v.y,'#aef',16,160,0.6);
+      sfxVacuum();
       vacuums.splice(i,1);
       if(P.xp>=P.xpN){ P.xp-=P.xpN; P.lv++; P.xpN=Math.round(P.xpN*1.35); showLevelUp(); return; }
     }
@@ -446,6 +453,184 @@ function update(dt) {
 
 // ── Orbit hit tracking ────────────────────────────────────────────────────────
 const orbHits = new Set();
+
+// ── Audio Engine ──────────────────────────────────────────────────────────────
+let aCtx = null, musicRunning = false, nextBarTime = 0, barIdx = 0, musicTimer = null;
+let _noiseBuf = null;
+
+function initAudio() {
+  if (aCtx) { if (aCtx.state === 'suspended') aCtx.resume(); return; }
+  aCtx = new (window.AudioContext || window.webkitAudioContext)();
+  // Pre-bake 1s of white noise for drums
+  _noiseBuf = aCtx.createBuffer(1, aCtx.sampleRate, aCtx.sampleRate);
+  const d = _noiseBuf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+}
+
+// ── SFX ───────────────────────────────────────────────────────────────────────
+function sfxChomp() {
+  if (!aCtx) return;
+  const t = aCtx.currentTime;
+  for (let i = 0; i < 3; i++) {
+    const st = t + i * 0.055;
+    const o = aCtx.createOscillator(), g = aCtx.createGain();
+    o.connect(g); g.connect(aCtx.destination);
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(580 - i*145, st);
+    o.frequency.exponentialRampToValueAtTime(110, st + 0.07);
+    g.gain.setValueAtTime(0.20, st);
+    g.gain.exponentialRampToValueAtTime(0.001, st + 0.08);
+    o.start(st); o.stop(st + 0.09);
+  }
+}
+
+function sfxLevelUp() {
+  if (!aCtx) return;
+  const t = aCtx.currentTime;
+  // Bright rising arpeggio: C-E-G-C5-E5
+  [261.63, 329.63, 392.00, 523.25, 659.25].forEach((freq, i) => {
+    const st = t + i * 0.08;
+    const o = aCtx.createOscillator(), g = aCtx.createGain();
+    o.connect(g); g.connect(aCtx.destination);
+    o.type = 'triangle';
+    o.frequency.setValueAtTime(freq, st);
+    g.gain.setValueAtTime(0.22, st);
+    g.gain.exponentialRampToValueAtTime(0.001, st + 0.42);
+    o.start(st); o.stop(st + 0.45);
+  });
+}
+
+function sfxVacuum() {
+  if (!aCtx) return;
+  const t = aCtx.currentTime;
+  // Rising pitch sweep with bandpass for that "sucking" tone
+  const o = aCtx.createOscillator(), fl = aCtx.createBiquadFilter(), g = aCtx.createGain();
+  o.connect(fl); fl.connect(g); g.connect(aCtx.destination);
+  o.type = 'sawtooth';
+  o.frequency.setValueAtTime(55, t);
+  o.frequency.exponentialRampToValueAtTime(3400, t + 0.52);
+  fl.type = 'bandpass'; fl.Q.setValueAtTime(6, t);
+  fl.frequency.setValueAtTime(120, t);
+  fl.frequency.exponentialRampToValueAtTime(5500, t + 0.52);
+  g.gain.setValueAtTime(0.30, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.58);
+  o.start(t); o.stop(t + 0.58);
+}
+
+// ── Music primitives ──────────────────────────────────────────────────────────
+function mTone(freq, st, dur, type='triangle', vol=0.14) {
+  if (!aCtx || !freq) return;
+  const o = aCtx.createOscillator(), g = aCtx.createGain();
+  o.connect(g); g.connect(aCtx.destination);
+  o.type = type; o.frequency.setValueAtTime(freq, st);
+  g.gain.setValueAtTime(vol, st);
+  g.gain.exponentialRampToValueAtTime(0.001, st + dur * 0.87);
+  o.start(st); o.stop(st + dur);
+}
+
+function mKick(st) {
+  if (!aCtx) return;
+  const o = aCtx.createOscillator(), g = aCtx.createGain();
+  o.connect(g); g.connect(aCtx.destination);
+  o.type = 'sine';
+  o.frequency.setValueAtTime(210, st);
+  o.frequency.exponentialRampToValueAtTime(38, st + 0.14);
+  g.gain.setValueAtTime(0.65, st);
+  g.gain.exponentialRampToValueAtTime(0.001, st + 0.20);
+  o.start(st); o.stop(st + 0.20);
+}
+
+function mSnare(st) {
+  if (!aCtx || !_noiseBuf) return;
+  const src = aCtx.createBufferSource(); src.buffer = _noiseBuf;
+  const fl = aCtx.createBiquadFilter(); fl.type = 'highpass'; fl.frequency.value = 1700;
+  const g = aCtx.createGain();
+  src.connect(fl); fl.connect(g); g.connect(aCtx.destination);
+  g.gain.setValueAtTime(0.22, st);
+  g.gain.exponentialRampToValueAtTime(0.001, st + 0.13);
+  src.start(st, Math.random() * 0.5, 0.14);
+}
+
+function mHat(st, open=false) {
+  if (!aCtx || !_noiseBuf) return;
+  const dur = open ? 0.10 : 0.028;
+  const src = aCtx.createBufferSource(); src.buffer = _noiseBuf;
+  const fl = aCtx.createBiquadFilter(); fl.type = 'highpass'; fl.frequency.value = 10000;
+  const g = aCtx.createGain();
+  src.connect(fl); fl.connect(g); g.connect(aCtx.destination);
+  g.gain.setValueAtTime(0.065, st);
+  g.gain.exponentialRampToValueAtTime(0.001, st + dur);
+  src.start(st, Math.random() * 0.4, dur + 0.01);
+}
+
+// ── Music patterns (C major, I–V–vi–IV) ──────────────────────────────────────
+const MN = {
+  C2:65.41,  E2:82.41,  F2:87.31,  G2:98.00,  A2:110.00, B2:123.47,
+  C3:130.81, D3:146.83, E3:164.81, A3:220.00,
+  C4:261.63, D4:293.66, E4:329.63, F4:349.23, G4:392.00, A4:440.00,
+  C5:523.25, D5:587.33,
+};
+
+// Bass: chord-tone quarter-note walking line
+const BASS_PATS = [
+  [MN.C2, MN.G2, MN.E2, MN.G2],  // C
+  [MN.G2, MN.B2, MN.D3, MN.B2],  // G
+  [MN.A2, MN.E3, MN.C3, MN.E3],  // Am
+  [MN.F2, MN.C3, MN.A2, MN.C3],  // F
+];
+
+// Melody: punchy 8th-note hook (8 notes per bar)
+const MEL_PATS = [
+  [MN.G4, MN.E4, MN.G4, MN.A4, MN.C5, MN.A4, MN.G4, MN.E4],
+  [MN.G4, MN.F4, MN.E4, MN.D4, MN.E4, MN.F4, MN.G4, MN.E4],
+  [MN.A4, MN.C5, MN.A4, MN.G4, MN.E4, MN.G4, MN.A4, MN.G4],
+  [MN.F4, MN.A4, MN.G4, MN.F4, MN.E4, MN.D4, MN.C4, MN.E4],
+];
+
+// BPM starts at 128, +5 every 30s of play, caps at 220
+function getMusicBpm() { return Math.min(220, 128 + Math.floor(gt / 30) * 5); }
+
+function scheduleBar(st, bi) {
+  if (!aCtx) return;
+  const bpm = getMusicBpm();
+  const beat = 60 / bpm, half = beat / 2;
+
+  // Bass
+  const bp = BASS_PATS[bi % 4];
+  for (let i = 0; i < 4; i++) mTone(bp[i], st + i*beat, beat*0.82, 'triangle', 0.18);
+
+  // Melody
+  const mp = MEL_PATS[bi % 4];
+  for (let i = 0; i < 8; i++) if (mp[i]) mTone(mp[i], st + i*half, half*0.76, 'sine', 0.085);
+
+  // Kit: kick 1+3, snare 2+4, 8th hi-hats (open on "and of 2")
+  mKick(st); mKick(st + beat*2);
+  mSnare(st + beat); mSnare(st + beat*3);
+  for (let i = 0; i < 8; i++) mHat(st + i*half, i === 3);
+}
+
+function musicTick() {
+  if (!musicRunning || !aCtx) return;
+  while (nextBarTime < aCtx.currentTime + 0.4) {
+    const bpm = getMusicBpm();
+    scheduleBar(nextBarTime, barIdx);
+    nextBarTime += (60 / bpm) * 4;
+    barIdx++;
+  }
+  musicTimer = setTimeout(musicTick, 80);
+}
+
+function startMusic() {
+  if (musicRunning) return;
+  musicRunning = true; barIdx = 0;
+  nextBarTime = aCtx.currentTime + 0.12;
+  musicTick();
+}
+
+function stopMusic() {
+  musicRunning = false;
+  if (musicTimer) { clearTimeout(musicTimer); musicTimer = null; }
+}
 
 // ── Render ────────────────────────────────────────────────────────────────────
 function render() {

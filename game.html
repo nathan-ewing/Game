@@ -92,8 +92,15 @@ let gt = 0, dt = 0, lastTs = 0;
 let kills = 0, shake = 0;
 const cam = { x:0, y:0 };
 
-let P, enemies, shots, gems, parts;
+let P, enemies, shots, gems, fruits, vacuums, parts;
 let spawnTimer = 0;
+
+// ── Fruit types ───────────────────────────────────────────────────────────────
+const FRUITS = [
+  { kind:'cherry',     col:'#e33', r:8,  heal:10 }, // 50%
+  { kind:'peach',      col:'#f9a', r:10, heal:25 }, // 35%
+  { kind:'pineapple',  col:'#fa0', r:13, heal:50 }, // 15%
+];
 
 // ── Enemy templates ──────────────────────────────────────────────────────────
 const ET = [
@@ -148,7 +155,7 @@ function makePlayer() {
 
 function startGame() {
   P = makePlayer();
-  enemies=[]; shots=[]; gems=[]; parts=[];
+  enemies=[]; shots=[]; gems=[]; fruits=[]; vacuums=[]; parts=[];
   gt=0; kills=0; shake=0; spawnTimer=0;
   mode='play';
   document.getElementById('title-panel').style.display='none';
@@ -191,6 +198,18 @@ function hitEnemy(e, dmg, ei) {
     }
     enemies.splice(ei,1);
     kills++;
+
+    // Fruit drop (7%)
+    if(Math.random()<0.07){
+      const fr=Math.random();
+      const ft=fr<0.50?FRUITS[0]:fr<0.85?FRUITS[1]:FRUITS[2];
+      fruits.push({x:e.x+(Math.random()-.5)*16, y:e.y+(Math.random()-.5)*16,
+        kind:ft.kind, col:ft.col, r:ft.r, heal:ft.heal});
+    }
+    // Vacuum drop (2%)
+    if(Math.random()<0.02){
+      vacuums.push({x:e.x, y:e.y, r:13, angle:0});
+    }
   }
 }
 
@@ -385,6 +404,29 @@ function update(dt) {
     }
   }
 
+  // Fruits
+  for(let i=fruits.length-1;i>=0;i--){
+    const f=fruits[i];
+    if(dist(f,P)<P.r+f.r+4){
+      P.hp=Math.min(P.mhp, P.hp+f.heal);
+      burst(f.x,f.y,f.col,8,70,0.45);
+      fruits.splice(i,1);
+    }
+  }
+
+  // Vacuums
+  for(let i=vacuums.length-1;i>=0;i--){
+    const v=vacuums[i];
+    v.angle+=dt*4;
+    if(dist(v,P)<P.r+v.r+4){
+      for(const g of gems) P.xp+=g.v;
+      gems.length=0;
+      burst(v.x,v.y,'#aef',16,160,0.6);
+      vacuums.splice(i,1);
+      if(P.xp>=P.xpN){ P.xp-=P.xpN; P.lv++; P.xpN=Math.round(P.xpN*1.35); showLevelUp(); return; }
+    }
+  }
+
   // Particles
   for(let i=parts.length-1;i>=0;i--){
     const p=parts[i];
@@ -437,6 +479,72 @@ function render() {
     ctx.lineTo(g.x,g.y+g.r);
     ctx.lineTo(g.x-g.r*0.65,g.y);
     ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+
+  // Fruits
+  for(const f of fruits){
+    ctx.save();
+    ctx.shadowColor=f.col; ctx.shadowBlur=10;
+    if(f.kind==='cherry'){
+      ctx.fillStyle='#e33';
+      ctx.beginPath(); ctx.arc(f.x,f.y,f.r,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle='#5a2'; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.moveTo(f.x,f.y-f.r); ctx.quadraticCurveTo(f.x+6,f.y-f.r-7,f.x+4,f.y-f.r-10); ctx.stroke();
+      // shine
+      ctx.fillStyle='rgba(255,255,255,0.35)';
+      ctx.beginPath(); ctx.ellipse(f.x-2,f.y-3,2.5,1.5,-.5,0,Math.PI*2); ctx.fill();
+    } else if(f.kind==='peach'){
+      ctx.fillStyle='#f9a';
+      ctx.beginPath(); ctx.arc(f.x,f.y,f.r,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle='#e88'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(f.x,f.y-f.r*0.2); ctx.lineTo(f.x,f.y+f.r*0.85); ctx.stroke();
+      ctx.strokeStyle='#5a2'; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.moveTo(f.x,f.y-f.r); ctx.lineTo(f.x+2,f.y-f.r-6); ctx.stroke();
+      ctx.fillStyle='rgba(255,255,255,0.3)';
+      ctx.beginPath(); ctx.ellipse(f.x-3,f.y-3,3,2,-.4,0,Math.PI*2); ctx.fill();
+    } else {
+      // pineapple body
+      ctx.fillStyle='#fa0';
+      ctx.beginPath(); ctx.ellipse(f.x,f.y+3,f.r*0.65,f.r*0.85,0,0,Math.PI*2); ctx.fill();
+      // cross-hatch
+      ctx.strokeStyle='rgba(180,100,0,0.4)'; ctx.lineWidth=1;
+      for(let k=-1;k<=1;k++){
+        ctx.beginPath(); ctx.moveTo(f.x-f.r*0.5,f.y+k*5); ctx.lineTo(f.x+f.r*0.5,f.y+k*5); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(f.x+k*4,f.y-f.r*0.6); ctx.lineTo(f.x+k*4,f.y+f.r*0.85); ctx.stroke();
+      }
+      // green crown
+      ctx.fillStyle='#3a6';
+      for(let k=-2;k<=2;k++){
+        ctx.beginPath();
+        ctx.moveTo(f.x+k*4,f.y-f.r*0.7);
+        ctx.lineTo(f.x+k*4-3,f.y-f.r*0.7-(5-Math.abs(k)*1.2));
+        ctx.lineTo(f.x+k*4+3,f.y-f.r*0.7-(5-Math.abs(k)*1.2));
+        ctx.closePath(); ctx.fill();
+      }
+    }
+    ctx.restore();
+  }
+
+  // Vacuums
+  for(const v of vacuums){
+    ctx.save();
+    ctx.shadowColor='#aef'; ctx.shadowBlur=16;
+    // outer ring
+    ctx.strokeStyle='#aef'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(v.x,v.y,v.r,0,Math.PI*2); ctx.stroke();
+    // spinning spiral arms
+    ctx.strokeStyle='rgba(170,238,255,0.8)'; ctx.lineWidth=1.5;
+    for(let k=0;k<3;k++){
+      const a=v.angle+k*(Math.PI*2/3);
+      ctx.beginPath();
+      ctx.moveTo(v.x+Math.cos(a)*2, v.y+Math.sin(a)*2);
+      ctx.lineTo(v.x+Math.cos(a)*v.r*0.8, v.y+Math.sin(a)*v.r*0.8);
+      ctx.stroke();
+    }
+    // center dot
+    ctx.fillStyle='#fff';
+    ctx.beginPath(); ctx.arc(v.x,v.y,3,0,Math.PI*2); ctx.fill();
     ctx.restore();
   }
 

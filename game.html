@@ -43,6 +43,31 @@ h2 { font-size:24px; margin-bottom:6px; }
 
 .stat { font-size:18px; margin:8px 0; color:#ccc; }
 .stat b { color:#4af; }
+
+.go-divider { height:1px; background:rgba(255,255,255,0.08); margin:6px 0; }
+.initial-box {
+  width:54px; height:68px;
+  background:rgba(255,255,255,0.05);
+  border:2px solid rgba(255,85,85,0.45);
+  border-radius:8px; color:#fff;
+  font-size:38px; font-family:'Courier New',monospace;
+  font-weight:bold; text-align:center;
+  text-transform:uppercase; outline:none;
+  caret-color:transparent; cursor:pointer;
+  transition:border-color .1s, background .1s;
+}
+.initial-box:focus { border-color:#f55; background:rgba(255,85,85,0.1); box-shadow:0 0 14px rgba(255,85,85,0.35); }
+.lb-row {
+  display:flex; align-items:center;
+  padding:7px 10px; border-radius:6px;
+  font-size:14px; margin:2px 0;
+}
+.lb-row:nth-child(odd){ background:rgba(255,255,255,0.025); }
+.lb-row.new-score { background:rgba(255,220,50,0.09); border:1px solid rgba(255,220,50,0.25); }
+.lb-rank  { width:28px; color:#555; font-size:12px; }
+.lb-name  { width:52px; font-weight:bold; letter-spacing:3px; color:#fff; }
+.lb-time  { flex:1; color:#4af; text-align:right; }
+.lb-kills { width:82px; color:#888; text-align:right; font-size:12px; }
 </style>
 </head>
 <body>
@@ -65,10 +90,27 @@ h2 { font-size:24px; margin-bottom:6px; }
   <div id="up-list"></div>
 </div>
 
-<div id="gameover-panel" class="panel">
-  <h2 style="color:#f55">YOU DIED</h2>
-  <div id="go-stats" style="margin:18px 0"></div>
-  <button class="btn" onclick="startGame()">PLAY AGAIN</button>
+<div id="gameover-panel" class="panel" style="max-width:520px;max-height:92vh;overflow-y:auto;display:none">
+  <h2 style="color:#f55;letter-spacing:4px">YOU DIED</h2>
+  <div id="go-stats" style="margin:16px 0 18px"></div>
+
+  <div class="go-divider"></div>
+  <p style="color:#aaa;font-size:12px;letter-spacing:2px;margin:14px 0 12px">ENTER YOUR INITIALS</p>
+  <div id="initials-row" style="display:flex;justify-content:center;gap:10px;margin-bottom:18px">
+    <input class="initial-box" id="i0" maxlength="1" placeholder="A">
+    <input class="initial-box" id="i1" maxlength="1" placeholder="A">
+    <input class="initial-box" id="i2" maxlength="1" placeholder="A">
+  </div>
+  <button class="btn" id="submit-btn" onclick="submitScore()">SUBMIT SCORE</button>
+
+  <div id="leaderboard-section" style="display:none;margin-top:22px">
+    <div class="go-divider"></div>
+    <p style="color:#fa0;font-size:12px;letter-spacing:3px;margin:14px 0 10px">HIGH SCORES</p>
+    <div id="lb-list"></div>
+    <div style="margin-top:20px">
+      <button class="btn" onclick="startGame()">PLAY AGAIN</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -80,8 +122,14 @@ resize(); addEventListener('resize', resize);
 
 // ── Input ────────────────────────────────────────────────────────────────────
 const K = {};
-addEventListener('keydown', e => { K[e.code] = true; if (e.code==='Space') e.preventDefault(); });
-addEventListener('keyup',   e => K[e.code] = false);
+addEventListener('keydown', e => {
+  if (document.activeElement.classList.contains('initial-box')) return;
+  K[e.code] = true; if (e.code==='Space') e.preventDefault();
+});
+addEventListener('keyup', e => {
+  if (document.activeElement.classList.contains('initial-box')) return;
+  K[e.code] = false;
+});
 
 // ── World constants ──────────────────────────────────────────────────────────
 const WW = 3200, WH = 3200, TILE = 72;
@@ -269,15 +317,62 @@ function showLevelUp() {
   panel.style.display='block';
 }
 
+// ── High scores ───────────────────────────────────────────────────────────────
+function loadScores() {
+  try { return JSON.parse(localStorage.getItem('laststand_hs') || '[]'); } catch(e) { return []; }
+}
+function saveScores(arr) {
+  try { localStorage.setItem('laststand_hs', JSON.stringify(arr)); } catch(e) {}
+}
+
+function submitScore() {
+  const name = ['i0','i1','i2'].map(id => {
+    const v = (document.getElementById(id).value || '?').toUpperCase()[0];
+    return /[A-Z0-9]/.test(v) ? v : '?';
+  }).join('');
+  const entry = { name, time: gt, kills, level: P.lv };
+  const scores = loadScores();
+  scores.push(entry);
+  scores.sort((a,b) => b.time - a.time);
+  if (scores.length > 10) scores.length = 10;
+  saveScores(scores);
+  const newIdx = scores.indexOf(entry);
+  document.getElementById('initials-row').style.display = 'none';
+  document.getElementById('submit-btn').style.display = 'none';
+  document.getElementById('leaderboard-section').style.display = 'block';
+  renderLeaderboard(scores, newIdx);
+}
+
+function renderLeaderboard(scores, highlightIdx) {
+  const list = document.getElementById('lb-list');
+  list.innerHTML = '';
+  scores.forEach((s, i) => {
+    const mins = Math.floor(s.time/60), secs = Math.floor(s.time%60).toString().padStart(2,'0');
+    const row = document.createElement('div');
+    row.className = 'lb-row' + (i === highlightIdx ? ' new-score' : '');
+    row.innerHTML = `<span class="lb-rank">#${i+1}</span>`
+      + `<span class="lb-name">${s.name}</span>`
+      + `<span class="lb-time">${mins}:${secs}</span>`
+      + `<span class="lb-kills">${s.kills} kills</span>`;
+    list.appendChild(row);
+  });
+}
+
 function die() {
   mode='dead';
   stopMusic();
+  sfxDeath();
   const mins=Math.floor(gt/60), secs=Math.floor(gt%60).toString().padStart(2,'0');
   document.getElementById('go-stats').innerHTML=
     `<div class="stat">Time: <b>${mins}:${secs}</b></div>
      <div class="stat">Kills: <b>${kills}</b></div>
      <div class="stat">Level: <b>${P.lv}</b></div>`;
+  ['i0','i1','i2'].forEach(id => { document.getElementById(id).value=''; });
+  document.getElementById('initials-row').style.display='flex';
+  document.getElementById('submit-btn').style.display='inline-block';
+  document.getElementById('leaderboard-section').style.display='none';
   document.getElementById('gameover-panel').style.display='block';
+  setTimeout(() => document.getElementById('i0').focus(), 120);
 }
 
 // ── Update ────────────────────────────────────────────────────────────────────
@@ -315,6 +410,7 @@ function update(dt) {
       const nx=(tgt.x-P.x)/d, ny=(tgt.y-P.y)/d;
       shots.push({x:P.x,y:P.y,vx:nx*430,vy:ny*430,r:7,
         dmg:P.sDmg,pierce:P.sPierce,pierced:0,hits:new Set(),life:1.8});
+      sfxShoot();
     }
   }
 
@@ -515,6 +611,53 @@ function sfxVacuum() {
   g.gain.setValueAtTime(0.30, t);
   g.gain.exponentialRampToValueAtTime(0.001, t + 0.58);
   o.start(t); o.stop(t + 0.58);
+}
+
+function sfxDeath() {
+  if (!aCtx) return;
+  const t = aCtx.currentTime;
+  // Low boom
+  const o1 = aCtx.createOscillator(), g1 = aCtx.createGain();
+  o1.connect(g1); g1.connect(aCtx.destination);
+  o1.type = 'sine';
+  o1.frequency.setValueAtTime(140, t);
+  o1.frequency.exponentialRampToValueAtTime(28, t + 0.75);
+  g1.gain.setValueAtTime(0.75, t);
+  g1.gain.exponentialRampToValueAtTime(0.001, t + 0.85);
+  o1.start(t); o1.stop(t + 0.85);
+  // Descending wail
+  const o2 = aCtx.createOscillator(), g2 = aCtx.createGain();
+  o2.connect(g2); g2.connect(aCtx.destination);
+  o2.type = 'sawtooth';
+  o2.frequency.setValueAtTime(400, t + 0.06);
+  o2.frequency.exponentialRampToValueAtTime(45, t + 1.5);
+  g2.gain.setValueAtTime(0.0, t + 0.06);
+  g2.gain.linearRampToValueAtTime(0.28, t + 0.18);
+  g2.gain.exponentialRampToValueAtTime(0.001, t + 1.6);
+  o2.start(t + 0.06); o2.stop(t + 1.6);
+  // Noise crash
+  if (_noiseBuf) {
+    const src = aCtx.createBufferSource(); src.buffer = _noiseBuf;
+    const fl = aCtx.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = 700;
+    const gn = aCtx.createGain();
+    src.connect(fl); fl.connect(gn); gn.connect(aCtx.destination);
+    gn.gain.setValueAtTime(0.55, t);
+    gn.gain.exponentialRampToValueAtTime(0.001, t + 0.55);
+    src.start(t, 0, 0.6);
+  }
+}
+
+function sfxShoot() {
+  if (!aCtx) return;
+  const t = aCtx.currentTime;
+  const o = aCtx.createOscillator(), g = aCtx.createGain();
+  o.connect(g); g.connect(aCtx.destination);
+  o.type = 'triangle';
+  o.frequency.setValueAtTime(700, t);
+  o.frequency.exponentialRampToValueAtTime(220, t + 0.06);
+  g.gain.setValueAtTime(0.09, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.065);
+  o.start(t); o.stop(t + 0.07);
 }
 
 // ── Music primitives ──────────────────────────────────────────────────────────
@@ -900,6 +1043,21 @@ function titleBg(ts) {
   requestAnimationFrame(titleBg);
 }
 requestAnimationFrame(titleBg);
+
+// ── Initial-box auto-advance ──────────────────────────────────────────────────
+const IDS = ['i0','i1','i2'];
+IDS.forEach((id, idx) => {
+  const el = document.getElementById(id);
+  el.addEventListener('input', () => {
+    el.value = el.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(-1);
+    if (el.value && idx < 2) document.getElementById(IDS[idx+1]).focus();
+  });
+  el.addEventListener('keydown', e => {
+    if (e.key==='Backspace' && !el.value && idx > 0)
+      document.getElementById(IDS[idx-1]).focus();
+    if (e.key==='Enter') submitScore();
+  });
+});
 </script>
 </body>
 </html>

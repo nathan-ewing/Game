@@ -98,7 +98,7 @@ let spawnTimer = 0;
 // ── Fruit types ───────────────────────────────────────────────────────────────
 const FRUITS = [
   { kind:'cherry',     col:'#e33', r:8,  heal:10 }, // 50%
-  { kind:'peach',      col:'#f9a', r:10, heal:25 }, // 35%
+  { kind:'banana',     col:'#ff4', r:10, heal:25 }, // 35%
   { kind:'pineapple',  col:'#fa0', r:13, heal:50 }, // 15%
 ];
 
@@ -494,15 +494,23 @@ function render() {
       // shine
       ctx.fillStyle='rgba(255,255,255,0.35)';
       ctx.beginPath(); ctx.ellipse(f.x-2,f.y-3,2.5,1.5,-.5,0,Math.PI*2); ctx.fill();
-    } else if(f.kind==='peach'){
-      ctx.fillStyle='#f9a';
-      ctx.beginPath(); ctx.arc(f.x,f.y,f.r,0,Math.PI*2); ctx.fill();
-      ctx.strokeStyle='#e88'; ctx.lineWidth=1;
-      ctx.beginPath(); ctx.moveTo(f.x,f.y-f.r*0.2); ctx.lineTo(f.x,f.y+f.r*0.85); ctx.stroke();
-      ctx.strokeStyle='#5a2'; ctx.lineWidth=1.5;
-      ctx.beginPath(); ctx.moveTo(f.x,f.y-f.r); ctx.lineTo(f.x+2,f.y-f.r-6); ctx.stroke();
-      ctx.fillStyle='rgba(255,255,255,0.3)';
-      ctx.beginPath(); ctx.ellipse(f.x-3,f.y-3,3,2,-.4,0,Math.PI*2); ctx.fill();
+    } else if(f.kind==='banana'){
+      // curved banana using bezier
+      ctx.strokeStyle='#fc0'; ctx.lineWidth=f.r*0.85; ctx.lineCap='round';
+      ctx.beginPath();
+      ctx.moveTo(f.x-8, f.y+6);
+      ctx.quadraticCurveTo(f.x+1, f.y-10, f.x+9, f.y+4);
+      ctx.stroke();
+      // darker yellow overlay for depth
+      ctx.strokeStyle='#ffe033'; ctx.lineWidth=f.r*0.45;
+      ctx.beginPath();
+      ctx.moveTo(f.x-6, f.y+4);
+      ctx.quadraticCurveTo(f.x+1, f.y-7, f.x+7, f.y+3);
+      ctx.stroke();
+      // brown tips
+      ctx.strokeStyle='#a63'; ctx.lineWidth=2.5; ctx.lineCap='round';
+      ctx.beginPath(); ctx.moveTo(f.x-8,f.y+6); ctx.lineTo(f.x-9,f.y+8); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(f.x+9,f.y+4); ctx.lineTo(f.x+10,f.y+6); ctx.stroke();
     } else {
       // pineapple body
       ctx.fillStyle='#fa0';

@@ -7074,18 +7074,8 @@ function render() {
   // Ground shadow
   ctx.fillStyle = 'rgba(0,0,0,0.55)';
   ctx.beginPath(); ctx.ellipse(P.x, P.y+P.r-2, P.r*0.95, P.r*0.4, 0, 0, Math.PI*2); ctx.fill();
-  // Outer magenta pulse ring
-  const breath = 0.5 + 0.5*Math.sin(gt*2.4);
-  ctx.shadowColor = '#ff0080'; ctx.shadowBlur = 14;
-  ctx.strokeStyle = `rgba(255,0,170,${0.30 + 0.25*breath})`;
-  ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.arc(P.x, P.y, P.r + 10 + breath*5, 0, Math.PI*2); ctx.stroke();
-  // Inner cyan ring
-  ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 10;
-  ctx.strokeStyle = `rgba(0,255,255,${0.45 + 0.25*breath})`;
-  ctx.lineWidth = 1.2;
-  ctx.beginPath(); ctx.arc(P.x, P.y, P.r + 5, 0, Math.PI*2); ctx.stroke();
-  ctx.shadowBlur = 0;
+  // (Decorative magenta/cyan breath rings removed — were competing visually
+  //  with the new Plasma Shield halo and Aura ring indicators.)
 
   // Vacuum suction ring (active while vacuumActiveT > 0)
   if (vacuumActiveT > 0) {

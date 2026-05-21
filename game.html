@@ -4485,7 +4485,10 @@ function update(dt) {
     for(let j=enemies.length-1;j>=0;j--){
       const e=enemies[j];
       if(s.hits.has(e.id)) continue;
-      if(dist(s,e)<s.r+e.r){
+      // Squared-distance check — avoids Math.sqrt in this O(shots × enemies) inner loop.
+      const dx = s.x - e.x, dy = s.y - e.y;
+      const reach = s.r + e.r;
+      if(dx*dx + dy*dy < reach*reach){
         s.hits.add(e.id); s.pierced++;
         burst(e.x,e.y,'#00ffff',4,55,0.25);
         hitEnemy(e,s.dmg,j);
@@ -4516,13 +4519,16 @@ function update(dt) {
   }
 
   // Aura weapon — continuously damages every enemy in range (DPS = P.auraDmg)
+  // Perf: squared-distance comparison avoids a Math.sqrt per enemy per frame.
   if(P.auraDmg>0){
     P.auraT += dt; // used for periodic sparkle visuals only
     const sparkle = (P.auraT >= 0.10);
     if (sparkle) P.auraT = 0;
     for(let j=enemies.length-1;j>=0;j--){
       const e=enemies[j];
-      if(dist(P,e) < P.auraR + e.r){
+      const dx = P.x - e.x, dy = P.y - e.y;
+      const reach = P.auraR + e.r;
+      if(dx*dx + dy*dy < reach*reach){
         // Continuous damage scaled by dt → P.auraDmg is damage-per-second
         e.hp -= P.auraDmg * dt;
         // Light tint (way less than a hit-flash so it doesn't strobe)
@@ -6134,13 +6140,13 @@ function render() {
     ctx.restore();
   }
 
-  // Vacuums
+  // Vacuums — outer ring carries the glow; arms + dot are cheap
   for(const v of vacuums){
     ctx.save();
     ctx.shadowColor='#aef'; ctx.shadowBlur=16;
-    // outer ring
     ctx.strokeStyle='#aef'; ctx.lineWidth=2;
     ctx.beginPath(); ctx.arc(v.x,v.y,v.r,0,Math.PI*2); ctx.stroke();
+    ctx.shadowBlur = 0;
     // spinning spiral arms
     ctx.strokeStyle='rgba(170,238,255,0.8)'; ctx.lineWidth=1.5;
     for(let k=0;k<3;k++){
@@ -6157,14 +6163,16 @@ function render() {
   }
 
   // Ice cubes — crystalline cube with rotating frost shimmer
+  // Perf: cold-aura halo carries the glow; cube body draws with no blur.
   for(const c of iceCubes){
     ctx.save();
     const pulse = 0.5 + 0.5*Math.sin(c.phase);
-    // Cold aura
+    // Cold aura halo
     ctx.shadowColor = '#cfeeff'; ctx.shadowBlur = 20 + 8*pulse;
     ctx.globalAlpha = 0.25 + 0.15*pulse;
     ctx.fillStyle = '#7ad4ff';
     ctx.beginPath(); ctx.arc(c.x, c.y, c.r*2.0, 0, Math.PI*2); ctx.fill();
+    ctx.shadowBlur = 0; // ── cheap cube body below ──
     ctx.globalAlpha = 1;
 
     // Cube body (rotated square)
@@ -6260,6 +6268,8 @@ function render() {
   }
 
   // Miniguns — rotating barrel cluster with gold glow
+  // Perf: only the outer halo + center hub carry the glow. The 18 barrel-cluster
+  // draws happen with no blur (was inheriting the halo's expensive shadow).
   for(const m of miniguns){
     ctx.save();
     const pulse = 0.5 + 0.5*Math.sin(m.phase);
@@ -6268,6 +6278,7 @@ function render() {
     ctx.globalAlpha = 0.25 + 0.15*pulse;
     ctx.fillStyle = '#ffea00';
     ctx.beginPath(); ctx.arc(m.x, m.y, m.r*2.0, 0, Math.PI*2); ctx.fill();
+    ctx.shadowBlur = 0; // ── cheap barrel cluster below ──
     ctx.globalAlpha = 1;
 
     ctx.translate(m.x, m.y);
@@ -6297,6 +6308,7 @@ function render() {
   }
 
   // EMP pickups — glowing cyan/yellow discs with lightning icon
+  // Perf: only the outer halo + glyph need glow. Rings draw with no blur.
   for(const em of emps){
     ctx.save();
     const pulse = 0.5 + 0.5*Math.sin(em.phase);
@@ -6304,16 +6316,16 @@ function render() {
     ctx.globalAlpha = 0.22 + 0.14*pulse;
     ctx.fillStyle = '#00ffee';
     ctx.beginPath(); ctx.arc(em.x, em.y, em.r*2.4, 0, Math.PI*2); ctx.fill();
+    ctx.shadowBlur = 0; // ── cheap layers below ──
     ctx.globalAlpha = 1;
     ctx.translate(em.x, em.y);
-    // Outer ring
+    // Outer ring (no glow — the halo above is the glow)
     ctx.strokeStyle = '#00ffee'; ctx.lineWidth = 2;
-    ctx.shadowColor = '#00ffee'; ctx.shadowBlur = 10;
     ctx.beginPath(); ctx.arc(0, 0, em.r, 0, Math.PI*2); ctx.stroke();
     // Inner ring
     ctx.strokeStyle = '#ffff00'; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.75;
     ctx.beginPath(); ctx.arc(0, 0, em.r*0.62, 0, Math.PI*2); ctx.stroke();
-    // Lightning glyph
+    // Lightning glyph — keep the small glow on this one, it sells the icon
     ctx.globalAlpha = 1;
     ctx.fillStyle = '#ffff00';
     ctx.shadowColor = '#ffff00'; ctx.shadowBlur = 8;
@@ -6332,6 +6344,7 @@ function render() {
     ctx.strokeStyle = '#00ffee';
     ctx.lineWidth = 3 * a;
     ctx.beginPath(); ctx.arc(er.x, er.y, er.r, 0, Math.PI*2); ctx.stroke();
+    ctx.shadowBlur = 0; // inner ring is cheap — no blur needed
     ctx.globalAlpha = a * 0.30;
     ctx.strokeStyle = '#ffff00';
     ctx.lineWidth = 9 * a;
@@ -6340,17 +6353,22 @@ function render() {
   }
 
   // Orbital Cannon — strike telegraphs (aim phase) + impact flashes (impact phase)
+  // Perf: shadowBlur is set ONCE per strike for the outer glow stroke, then
+  // explicitly zeroed before drawing inner detail layers. Without the zero,
+  // every subsequent stroke inherits the blur and pays its full cost — that
+  // multiplied across 4 simultaneous strikes was eating frame budget.
   for (const s of strikes) {
     if (s.state === 'aim') {
       const phase = 1 - (s.t / 0.32);          // 0 → 1 over aim
       const a = Math.min(1, phase * 1.8);
       ctx.save();
-      // Crosshair reticle
+      // Outer crosshair reticle (with glow — the one expensive draw)
       ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 14;
       ctx.strokeStyle = `rgba(0,255,255,${a * 0.9})`;
       ctx.lineWidth = 2;
-      const ringR = s.r * (0.35 + 0.65 * (1 - phase)); // contracts inward
+      const ringR = s.r * (0.35 + 0.65 * (1 - phase));
       ctx.beginPath(); ctx.arc(s.x, s.y, ringR, 0, Math.PI*2); ctx.stroke();
+      ctx.shadowBlur = 0; // ── cheap layers below ──
       // Inner magenta pulse
       ctx.strokeStyle = `rgba(255,0,128,${a * 0.55})`;
       ctx.lineWidth = 1.5;
@@ -6362,16 +6380,16 @@ function render() {
       ctx.moveTo(s.x - s.r*0.48, s.y); ctx.lineTo(s.x + s.r*0.48, s.y);
       ctx.moveTo(s.x, s.y - s.r*0.48); ctx.lineTo(s.x, s.y + s.r*0.48);
       ctx.stroke();
-      // Vertical beam streak — appears in the last 0.10s before impact
+      // Vertical beam streak — last 0.10s of aim phase
       if (s.t < 0.10) {
         const beamA = (0.10 - s.t) / 0.10;
-        ctx.shadowBlur = 22;
+        ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 22;
         ctx.strokeStyle = `rgba(170,255,255,${beamA * 0.75})`;
         ctx.lineWidth = 5 * beamA;
         ctx.beginPath();
         ctx.moveTo(s.x, s.y - 600); ctx.lineTo(s.x, s.y);
         ctx.stroke();
-        // Bright inner streak
+        ctx.shadowBlur = 0; // cheap inner streak
         ctx.strokeStyle = `rgba(255,255,255,${beamA})`;
         ctx.lineWidth = 1.5 * beamA;
         ctx.beginPath();
@@ -6383,20 +6401,21 @@ function render() {
       const phase = 1 - (s.t / 0.45);
       const a = 1 - phase;
       ctx.save();
-      // Expanding outer shockwave
+      // Outer expanding shockwave (with glow — the one expensive draw)
       ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 26;
       ctx.strokeStyle = `rgba(0,255,255,${a * 0.85})`;
       ctx.lineWidth = 4 * a;
       ctx.beginPath();
       ctx.arc(s.x, s.y, s.r * (0.5 + 1.5 * phase), 0, Math.PI*2);
       ctx.stroke();
+      ctx.shadowBlur = 0; // ── cheap layers below ──
       // Inner bright ring
       ctx.strokeStyle = `rgba(255,255,255,${a * 0.7})`;
       ctx.lineWidth = 2.5 * a;
       ctx.beginPath();
       ctx.arc(s.x, s.y, s.r * (0.3 + 1.05 * phase), 0, Math.PI*2);
       ctx.stroke();
-      // Core flash — lingers only briefly
+      // Core flash
       if (phase < 0.30) {
         const coreA = 1 - phase / 0.30;
         ctx.fillStyle = `rgba(255,255,255,${coreA})`;

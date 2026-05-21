@@ -894,6 +894,12 @@ function startTreasureCache() {
 
 function maybeTriggerWaveEvent() {
   if (boss) return;
+  // Skip during the post-boss warp. wavesCleared has already incremented but
+  // waveStartT hasn't been reset for the new wave yet — without this guard the
+  // frame right after a boss dies would burn the new wave's event slot
+  // (gt - waveStartT is still ~300s from the old wave). waveStartT becomes gt
+  // when the warp ends, after which the 150s countdown for the new wave begins.
+  if (warpT > 0) return;
   // Trigger exactly at the halfway point of the wave (boss interval is 300s → 150s in)
   if (gt - waveStartT < BOSS_INTERVAL / 2) return;
   const currentWave = wavesCleared + 1;

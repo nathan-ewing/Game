@@ -3081,14 +3081,16 @@ function sfxBossSpawn() {
 // needed. Called from every level-up site (gem pickup, fruit pickup, dev).
 function applyLevelMilestones() {
   if (!P || !selectedChampion) return;
-  // Lancer — passively gains +1 shot pierce every 10 levels. Replaces her
-  // ability to pick Penetrator (which is in her excludeSkills).
-  if (selectedChampion.id === 'lancer' && P.lv > 0 && P.lv % 10 === 0) {
+  // Lancer — passively gains +1 shot pierce every 10 levels, capped at 5
+  // total milestones (lv 10/20/30/40/50). Final pierce ceiling: 8 (3 base
+  // + 5 milestones), matching what she could reach with Penetrator pre-rework.
+  if (selectedChampion.id === 'lancer' && P.lv > 0 && P.lv % 10 === 0 && P.lv <= 50) {
     P.sPierce++;
+    const finalMilestone = P.lv === 50;
     xpPops.push({
       x: P.x, y: P.y - P.r - 8,
       vy: -60, life: 1.6, ml: 1.6,
-      text: '+1 PIERCE',
+      text: finalMilestone ? 'PIERCE MAX' : '+1 PIERCE',
       val: P.sPierce, col: '#ffd84a',
     });
     burst(P.x, P.y, '#ffd84a', 14, 140, 0.5);

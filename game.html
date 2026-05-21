@@ -655,7 +655,7 @@ h1 { animation:titleGlow 3.5s ease-in-out infinite; }
     <button class="btn-play" onclick="openChampionSelect()">PLAY</button>
     <button class="btn-ghost" onclick="showAchievements('title')">ACHIEVEMENTS</button>
     <button class="btn-ghost" onclick="showHighScores()">HIGH SCORES</button>
-    <button class="btn-ghost" onclick="showSoundOptions('title')">SOUND</button>
+    <button class="btn-ghost" onclick="showSettings()">SETTINGS</button>
   </div>
   <div id="lifetime-stats"></div>
 </div>
@@ -685,6 +685,67 @@ h1 { animation:titleGlow 3.5s ease-in-out infinite; }
   </div>
   <div style="margin-top:22px">
     <button class="btn-ghost" onclick="closeSoundOptions()">BACK</button>
+  </div>
+</div>
+
+<div id="settings-panel" class="panel" style="display:none;max-width:520px;width:92%;max-height:90vh;overflow-y:auto">
+  <h2 style="color:#00ffff;letter-spacing:6px">SETTINGS</h2>
+
+  <!-- ── SOUND ─────────────────────────────────────────────── -->
+  <div style="margin-top:18px">
+    <div style="color:#00ffff;font-size:12px;letter-spacing:4px;margin-bottom:14px;text-align:center;text-shadow:0 0 8px rgba(0,255,255,0.55)">SOUND</div>
+    <div class="sound-row">
+      <label>MASTER</label>
+      <input id="vol-master-s" type="range" min="0" max="100" value="100">
+      <span id="vol-master-s-val" class="sound-val">100</span>
+    </div>
+    <div class="sound-row">
+      <label>MUSIC</label>
+      <input id="vol-music-s" type="range" min="0" max="100" value="85">
+      <span id="vol-music-s-val" class="sound-val">85</span>
+    </div>
+    <div class="sound-row">
+      <label>SFX</label>
+      <input id="vol-sfx-s" type="range" min="0" max="100" value="100">
+      <span id="vol-sfx-s-val" class="sound-val">100</span>
+    </div>
+    <div class="sound-row" style="margin-top:14px">
+      <label class="hardcore-chk" style="border-color:rgba(0,255,255,0.3);color:#00ffff">
+        <input id="vol-mute-s" type="checkbox"> MUTE ALL
+      </label>
+    </div>
+  </div>
+
+  <!-- ── DANGER ZONE ──────────────────────────────────────── -->
+  <div style="margin-top:30px;padding-top:18px;border-top:1px solid rgba(255,0,128,0.3)">
+    <div style="color:#ff0080;font-size:12px;letter-spacing:4px;margin-bottom:10px;text-align:center;text-shadow:0 0 8px rgba(255,0,128,0.5)">⚠ DANGER ZONE</div>
+
+    <div id="reset-default" style="text-align:center">
+      <p class="sub" style="font-size:11px;margin-bottom:14px">Permanently erase all progress. Cannot be undone.</p>
+      <button class="btn-ghost" style="border-color:rgba(255,0,128,0.55);color:#ff66c4;text-shadow:0 0 6px rgba(255,0,128,0.4)" onclick="confirmResetProgress()">RESET ALL PROGRESS</button>
+    </div>
+
+    <div id="reset-confirm" style="display:none;text-align:center">
+      <p style="color:#ff6688;font-size:13px;line-height:1.55;margin:0 0 14px;letter-spacing:1px">
+        Are you sure?
+      </p>
+      <p style="color:#aaa;font-size:11px;line-height:1.6;margin-bottom:18px;letter-spacing:1px">
+        This will erase unlocks, achievements,<br>lifetime stats, high scores, and tutorial state.
+      </p>
+      <div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap">
+        <button class="btn" style="background:#ff0080;border-color:#ff0080;color:#fff;box-shadow:0 0 16px rgba(255,0,128,0.5)" onclick="performReset()">YES, ERASE EVERYTHING</button>
+        <button class="btn-ghost" onclick="cancelResetProgress()">CANCEL</button>
+      </div>
+    </div>
+
+    <div id="reset-done" style="display:none;text-align:center">
+      <p style="color:#00ff66;font-size:14px;letter-spacing:3px;text-shadow:0 0 8px rgba(0,255,102,0.7);margin:0">✓ PROGRESS ERASED</p>
+      <p class="sub" style="font-size:11px;margin-top:8px">All data has been reset.</p>
+    </div>
+  </div>
+
+  <div style="margin-top:26px">
+    <button class="btn-ghost" onclick="closeSettings()">BACK</button>
   </div>
 </div>
 
@@ -3258,6 +3319,93 @@ function closeSoundOptions() {
   } else {
     animatePanel(document.getElementById('title-panel'));
   }
+}
+
+// ── Settings panel (main-menu only) ──────────────────────────────────────────
+// Opened from the title screen's SETTINGS button. Wraps the sound controls and
+// adds a "RESET ALL PROGRESS" workflow with a two-step confirmation. The pause
+// menu intentionally keeps its own simpler SOUND panel — resetting progress
+// mid-run would be weird and accidental.
+function showSettings() {
+  // Reset the danger-zone state so it doesn't open mid-confirmation if the
+  // user closed/reopened the panel.
+  document.getElementById('reset-default').style.display = 'block';
+  document.getElementById('reset-confirm').style.display = 'none';
+  document.getElementById('reset-done').style.display    = 'none';
+
+  // Sync slider positions with the current audio settings
+  const vM   = document.getElementById('vol-master-s');
+  const vMu  = document.getElementById('vol-music-s');
+  const vS   = document.getElementById('vol-sfx-s');
+  const vMute= document.getElementById('vol-mute-s');
+  vM.value   = Math.round(audioSettings.master * 100);
+  vMu.value  = Math.round(audioSettings.music  * 100);
+  vS.value   = Math.round(audioSettings.sfx    * 100);
+  vMute.checked = !!audioSettings.muted;
+  document.getElementById('vol-master-s-val').textContent = vM.value;
+  document.getElementById('vol-music-s-val').textContent  = vMu.value;
+  document.getElementById('vol-sfx-s-val').textContent    = vS.value;
+  // Wire input handlers once
+  if (!vM._wired) {
+    vM.addEventListener('input', () => {
+      audioSettings.master = vM.value / 100;
+      document.getElementById('vol-master-s-val').textContent = vM.value;
+      applyAudioSettings(); saveAudioSettings();
+    });
+    vMu.addEventListener('input', () => {
+      audioSettings.music = vMu.value / 100;
+      document.getElementById('vol-music-s-val').textContent = vMu.value;
+      applyAudioSettings(); saveAudioSettings();
+    });
+    vS.addEventListener('input', () => {
+      audioSettings.sfx = vS.value / 100;
+      document.getElementById('vol-sfx-s-val').textContent = vS.value;
+      applyAudioSettings(); saveAudioSettings();
+    });
+    vMute.addEventListener('change', () => {
+      audioSettings.muted = !!vMute.checked;
+      applyAudioSettings(); saveAudioSettings();
+    });
+    vM._wired = true;
+  }
+  document.getElementById('title-panel').style.display = 'none';
+  animatePanel(document.getElementById('settings-panel'));
+}
+function closeSettings() {
+  document.getElementById('settings-panel').style.display = 'none';
+  animatePanel(document.getElementById('title-panel'));
+}
+
+// Two-step reset confirmation
+function confirmResetProgress() {
+  document.getElementById('reset-default').style.display = 'none';
+  document.getElementById('reset-confirm').style.display = 'block';
+}
+function cancelResetProgress() {
+  document.getElementById('reset-confirm').style.display = 'none';
+  document.getElementById('reset-default').style.display = 'block';
+}
+function performReset() {
+  // Wipe every progress-related localStorage key. Audio settings deliberately
+  // preserved — those are preferences, not progress.
+  const keys = [
+    STATS_KEY,            // 'crusade_stats' (lifetime stats)
+    CHAMP_UNLOCK_KEY,     // 'crusade_champ_unlocks' (champion unlocks)
+    ACH_KEY,              // 'crusade_achievements'
+    CHAMP_KEY,            // 'crusade_champions_tried'
+    HARDCORE_KEY,         // 'crusade_hardcore_unlocked'
+    TUT_KEY,              // 'crusade_tutorial_seen'
+    'laststand_hs',       // legacy high-scores key
+  ];
+  for (const k of keys) {
+    try { localStorage.removeItem(k); } catch(e) {}
+  }
+  // Show success state, then reload after a brief moment so every in-memory
+  // cache (unlockedChampions, achievements, tutSeen, lifetime stats, etc.)
+  // reinitializes from the now-empty localStorage.
+  document.getElementById('reset-confirm').style.display = 'none';
+  document.getElementById('reset-done').style.display    = 'block';
+  setTimeout(() => { location.reload(); }, 1100);
 }
 
 // Track where the achievements panel was opened from so BACK returns properly

@@ -8188,7 +8188,8 @@ function drawHUD(CW,CH) {
   }
   ctx.fillStyle='#a070b0'; ctx.font='10px "Courier New", monospace';
   const statsRowY = wy + (hasExtra ? 71 : 53);
-  ctx.fillText(`Regen ${P.regen>0?P.regen.toFixed(1):'--'}   Mag ${P.mag}   Spd ${Math.round(P.spd)}`, 22, statsRowY);
+  // P.regen is now a fraction (0.01 = 1% max HP/sec per stack) — display as a percent.
+  ctx.fillText(`Regen ${P.regen>0?(P.regen*100).toFixed(0)+'%':'--'}   Mag ${P.mag}   Spd ${Math.round(P.spd)}`, 22, statsRowY);
 
   // XP-to-next mini text
   ctx.fillStyle='#ff66c4'; ctx.font='9px "Courier New", monospace';

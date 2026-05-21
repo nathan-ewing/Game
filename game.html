@@ -5998,6 +5998,407 @@ function startGameMusic() {
   startMusic();
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// BOSS RENDERING — shared body system, per-tier visual flavor
+// Each of the 6 boss names overrides specific cfg fields. Boss tier > 6 cycles
+// the variants again (BOSS_NAMES wraps with a roman numeral suffix on bossName).
+// ═══════════════════════════════════════════════════════════════════════════
+function drawBoss(e) {
+  const phase   = e.spinPhase || 0;
+  const tier    = e.bossTier  || 1;
+  const variant = (tier - 1) % 6;
+  const hpFrac  = Math.max(0, e.hp / e.mhp);
+
+  // ── Variant config (baseline + per-boss overrides) ──────────────────────
+  const cfg = {
+    spikeCount:      Math.min(10, 4 + tier),
+    plateCount:      4 + Math.min(2, tier - 1),
+    plateShape:      'hex',
+    plateEdgeColor:  e.col,
+    plateBodyColor:  '#150611',
+    eyeCount:        1,
+    eyeScale:        1.0,
+    bodyOpacity:     1.0,
+    crownSpikes:     0,
+    crownColor:      '#ffea00',
+    jaggedSpikes:    false,
+    scytheBlades:    0,
+    wispyTendrils:   false,
+    iridescentRim:   false,
+    targetingReticle:false,
+    antennas:        false,
+  };
+  switch (variant) {
+    case 0: // NEON OVERLORD — imperial regalia with gold accents + crown
+      cfg.spikeCount      = 6;
+      cfg.plateEdgeColor  = '#ffea00';
+      cfg.eyeScale        = 1.4;
+      cfg.crownSpikes     = 3;
+      break;
+    case 1: // CRIMSON DESTROYER — brutal, jagged, two eyes
+      cfg.spikeCount      = 9;
+      cfg.jaggedSpikes    = true;
+      cfg.eyeCount        = 2;
+      cfg.eyeScale        = 0.75;
+      break;
+    case 2: // VOID PHANTOM — ghostly, translucent, multiple eyes, tendrils
+      cfg.spikeCount      = 0;
+      cfg.plateCount      = 0;
+      cfg.bodyOpacity     = 0.55;
+      cfg.eyeCount        = 3;
+      cfg.eyeScale        = 0.55;
+      cfg.wispyTendrils   = true;
+      break;
+    case 3: // CHROME REAPER — scythe blades + large central eye
+      cfg.spikeCount      = 4;
+      cfg.scytheBlades    = 2;
+      cfg.eyeScale        = 1.2;
+      break;
+    case 4: // PRISM TYRANT — crystalline triangle plates, iridescent rim
+      cfg.plateShape      = 'triangle';
+      cfg.iridescentRim   = true;
+      cfg.eyeCount        = 3;
+      cfg.eyeScale        = 0.65;
+      break;
+    case 5: // CYBER WARLORD — military mech with rect plates + reticle
+      cfg.spikeCount      = 4;
+      cfg.plateShape      = 'rect';
+      cfg.targetingReticle= true;
+      cfg.antennas        = true;
+      cfg.eyeScale        = 1.0;
+      break;
+  }
+
+  // ── Layer 0: wispy tendrils (Phantom only) — drawn behind everything ────
+  if (cfg.wispyTendrils) {
+    ctx.save();
+    ctx.shadowColor = e.col; ctx.shadowBlur = 12;
+    ctx.strokeStyle = `rgba(180,80,255,0.55)`;
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    for (let i = -1; i <= 1; i++) {
+      const baseX = e.x + i * e.r * 0.45;
+      const baseY = e.y + e.r * 0.6;
+      const sway = Math.sin(phase * 1.8 + i * 1.5) * 12;
+      ctx.beginPath();
+      ctx.moveTo(baseX, baseY);
+      ctx.quadraticCurveTo(baseX + sway, baseY + e.r * 0.7,
+                            baseX + sway * 0.5, baseY + e.r * 1.3);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // ── Layer 1: halo with tier-rune notches ────────────────────────────────
+  ctx.save();
+  ctx.shadowColor = e.col; ctx.shadowBlur = 22;
+  ctx.strokeStyle = e.col;
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(e.x, e.y, e.r + 32, 0, Math.PI*2); ctx.stroke();
+  ctx.shadowBlur = 0;
+  const notchCount = Math.min(8, 3 + tier);
+  const notchR = e.r + 32;
+  ctx.fillStyle   = e.col;
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth   = 1;
+  for (let i = 0; i < notchCount; i++) {
+    const a = (i / notchCount) * Math.PI * 2 + phase * 0.35;
+    const nx = e.x + Math.cos(a) * notchR;
+    const ny = e.y + Math.sin(a) * notchR;
+    ctx.beginPath();
+    for (let k = 0; k < 6; k++) {
+      const ka = (k / 6) * Math.PI * 2;
+      const x = nx + Math.cos(ka) * 4;
+      const y = ny + Math.sin(ka) * 4;
+      if (k === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+  }
+  ctx.restore();
+
+  // ── Layer 2: spike crown (skip if 0) ────────────────────────────────────
+  if (cfg.spikeCount > 0) {
+    ctx.save();
+    ctx.translate(e.x, e.y);
+    ctx.rotate(phase);
+    ctx.shadowColor = e.col; ctx.shadowBlur = 14;
+    ctx.fillStyle = e.col;
+    const baseR = e.r * 0.92, wing = e.r * 0.10;
+    for (let i = 0; i < cfg.spikeCount; i++) {
+      const a = (i / cfg.spikeCount) * Math.PI * 2;
+      const cosA = Math.cos(a), sinA = Math.sin(a);
+      // Jagged spikes vary tip length
+      const tipR = cfg.jaggedSpikes
+        ? e.r * (1.10 + 0.30 * Math.abs(Math.sin(i * 2.7)))
+        : e.r * 1.32;
+      const bx1 = cosA * baseR - sinA * wing;
+      const by1 = sinA * baseR + cosA * wing;
+      const bx2 = cosA * baseR + sinA * wing;
+      const by2 = sinA * baseR - cosA * wing;
+      const tx  = cosA * tipR;
+      const ty  = sinA * tipR;
+      ctx.beginPath();
+      ctx.moveTo(bx1, by1); ctx.lineTo(tx, ty); ctx.lineTo(bx2, by2);
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+    ctx.restore();
+  }
+
+  // ── Layer 2b: scythe blades (Reaper only, east + west) ──────────────────
+  if (cfg.scytheBlades > 0) {
+    ctx.save();
+    ctx.translate(e.x, e.y);
+    ctx.rotate(phase * 0.7); // own slower rotation
+    ctx.shadowColor = e.col; ctx.shadowBlur = 18;
+    for (let i = 0; i < cfg.scytheBlades; i++) {
+      const flip = i === 0 ? 1 : -1;
+      ctx.save();
+      ctx.scale(flip, 1);
+      // Blade handle
+      ctx.strokeStyle = '#aaaaaa';
+      ctx.lineWidth = 3.5;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(e.r * 0.6, -e.r * 0.1);
+      ctx.lineTo(e.r * 1.45, -e.r * 0.6);
+      ctx.stroke();
+      // Curved blade (sweeps backward)
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = e.r * 0.12;
+      ctx.beginPath();
+      ctx.arc(e.r * 1.35, -e.r * 0.35, e.r * 0.55,
+              -Math.PI * 0.95, -Math.PI * 0.30, false);
+      ctx.stroke();
+      // Blade edge highlight
+      ctx.strokeStyle = e.col;
+      ctx.lineWidth = e.r * 0.04;
+      ctx.beginPath();
+      ctx.arc(e.r * 1.35, -e.r * 0.35, e.r * 0.55,
+              -Math.PI * 0.92, -Math.PI * 0.33, false);
+      ctx.stroke();
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+
+  // ── Layer 3: armor plates (hex / triangle / rect) ───────────────────────
+  if (cfg.plateCount > 0) {
+    ctx.save();
+    ctx.translate(e.x, e.y);
+    ctx.rotate(-phase * 0.6);
+    const plateR = e.r * 0.82;
+    const plateSize = e.r * 0.22;
+    for (let i = 0; i < cfg.plateCount; i++) {
+      const a = (i / cfg.plateCount) * Math.PI * 2;
+      const px = Math.cos(a) * plateR;
+      const py = Math.sin(a) * plateR;
+      ctx.fillStyle = cfg.plateBodyColor;
+      ctx.beginPath();
+      if (cfg.plateShape === 'triangle') {
+        for (let k = 0; k < 3; k++) {
+          const ka = (k / 3) * Math.PI * 2 + a;
+          const x = px + Math.cos(ka) * plateSize * 1.15;
+          const y = py + Math.sin(ka) * plateSize * 1.15;
+          if (k === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+      } else if (cfg.plateShape === 'rect') {
+        // Rect plates align outward
+        const cos2 = Math.cos(a), sin2 = Math.sin(a);
+        const w = plateSize * 1.15, h = plateSize * 0.75;
+        const corners = [[-w,-h],[w,-h],[w,h],[-w,h]];
+        for (let k = 0; k < 4; k++) {
+          const x = px + corners[k][0] * cos2 - corners[k][1] * sin2;
+          const y = py + corners[k][0] * sin2 + corners[k][1] * cos2;
+          if (k === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+      } else { // hex
+        for (let k = 0; k < 6; k++) {
+          const ka = (k / 6) * Math.PI * 2 + a;
+          const x = px + Math.cos(ka) * plateSize;
+          const y = py + Math.sin(ka) * plateSize;
+          if (k === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = cfg.plateEdgeColor;
+      ctx.lineWidth = 1.6;
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // ── Layer 3b: antennas (Warlord only) ───────────────────────────────────
+  if (cfg.antennas) {
+    ctx.save();
+    ctx.shadowColor = e.col; ctx.shadowBlur = 8;
+    ctx.strokeStyle = '#888899';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    for (let i = -1; i <= 1; i += 2) {
+      const baseX = e.x + i * e.r * 0.35;
+      const baseY = e.y - e.r * 0.80;
+      const tipY  = baseY - e.r * 0.50;
+      ctx.beginPath();
+      ctx.moveTo(baseX, baseY);
+      ctx.lineTo(baseX + i * e.r * 0.08, tipY);
+      ctx.stroke();
+      // Antenna tip light
+      ctx.fillStyle = e.col;
+      ctx.beginPath();
+      ctx.arc(baseX + i * e.r * 0.08, tipY, 3, 0, Math.PI*2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // ── Layer 4: core sphere (the body — takes the hit-flash) ───────────────
+  ctx.save();
+  ctx.globalAlpha = cfg.bodyOpacity;
+  ctx.shadowColor = e.col; ctx.shadowBlur = 22;
+  const coreR = e.r * 0.65;
+  if (e.flash > 0) {
+    ctx.fillStyle = '#ffffff';
+  } else {
+    const eg = ctx.createRadialGradient(e.x - e.r*0.25, e.y - e.r*0.25, 1, e.x, e.y, coreR);
+    eg.addColorStop(0,    'rgba(255,255,255,0.75)');
+    eg.addColorStop(0.42, e.col);
+    eg.addColorStop(1,    '#150006');
+    ctx.fillStyle = eg;
+  }
+  ctx.beginPath(); ctx.arc(e.x, e.y, coreR, 0, Math.PI*2); ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(e.x, e.y, coreR, 0, Math.PI*2); ctx.stroke();
+  ctx.restore();
+
+  // ── Layer 4b: iridescent rim (Prism Tyrant only) ────────────────────────
+  if (cfg.iridescentRim) {
+    ctx.save();
+    const prismCols = ['#ff0080', '#ffea00', '#00ffff', '#b400ff'];
+    for (let i = 0; i < prismCols.length; i++) {
+      ctx.strokeStyle = prismCols[i];
+      ctx.globalAlpha = 0.55;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, coreR + 2 + i * 1.5, 0, Math.PI*2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // ── Layer 4c: crown spikes (Overlord only) — gold tall spikes on top ────
+  if (cfg.crownSpikes > 0) {
+    ctx.save();
+    ctx.shadowColor = e.col; ctx.shadowBlur = 12;
+    ctx.fillStyle = cfg.crownColor;
+    ctx.strokeStyle = e.col;
+    ctx.lineWidth = 1.5;
+    for (let i = -1; i <= 1; i++) {
+      const cx = e.x + i * e.r * 0.30;
+      const baseY = e.y - e.r * 0.85;
+      const heightBonus = (i === 0) ? 0.18 : 0;
+      const tipY = baseY - e.r * (0.50 + heightBonus);
+      ctx.beginPath();
+      ctx.moveTo(cx - e.r * 0.08, baseY);
+      ctx.lineTo(cx,                tipY);
+      ctx.lineTo(cx + e.r * 0.08, baseY);
+      ctx.closePath();
+      ctx.fill(); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // ── Layer 5: eye(s) — count + scale per variant, plus targeting reticle ─
+  const eyeAng = Math.atan2(P.y - e.y, P.x - e.x);
+  if (cfg.targetingReticle) {
+    // Warlord — crosshair instead of eye
+    ctx.save();
+    ctx.shadowColor = e.col; ctx.shadowBlur = 10;
+    ctx.strokeStyle = e.col;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, e.r * 0.26, 0, Math.PI*2);
+    ctx.stroke();
+    // Crosshair lines
+    ctx.beginPath();
+    ctx.moveTo(e.x - e.r * 0.34, e.y); ctx.lineTo(e.x - e.r * 0.10, e.y);
+    ctx.moveTo(e.x + e.r * 0.10, e.y); ctx.lineTo(e.x + e.r * 0.34, e.y);
+    ctx.moveTo(e.x, e.y - e.r * 0.34); ctx.lineTo(e.x, e.y - e.r * 0.10);
+    ctx.moveTo(e.x, e.y + e.r * 0.10); ctx.lineTo(e.x, e.y + e.r * 0.34);
+    ctx.stroke();
+    // Center dot
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(e.x, e.y, e.r * 0.05, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+  } else {
+    // Eye(s): 1 centered, 2 side-by-side, or 3 in triangle
+    const eyeR  = e.r * 0.18 * cfg.eyeScale;
+    const scleraR = e.r * 0.28 * cfg.eyeScale;
+    const positions = [];
+    if (cfg.eyeCount === 1) {
+      positions.push({ x: e.x, y: e.y });
+    } else if (cfg.eyeCount === 2) {
+      positions.push({ x: e.x - e.r * 0.20, y: e.y });
+      positions.push({ x: e.x + e.r * 0.20, y: e.y });
+    } else { // 3 in triangle
+      positions.push({ x: e.x,                    y: e.y - e.r * 0.18 });
+      positions.push({ x: e.x - e.r * 0.20,       y: e.y + e.r * 0.12 });
+      positions.push({ x: e.x + e.r * 0.20,       y: e.y + e.r * 0.12 });
+    }
+    for (const ep of positions) {
+      const off = (eyeR) * 0.55;
+      const ix  = ep.x + Math.cos(eyeAng) * off;
+      const iy  = ep.y + Math.sin(eyeAng) * off;
+      ctx.save();
+      // Sclera
+      ctx.fillStyle = '#f2e6f0';
+      ctx.beginPath(); ctx.arc(ep.x, ep.y, scleraR, 0, Math.PI*2); ctx.fill();
+      // Iris
+      ctx.shadowColor = e.col; ctx.shadowBlur = 10;
+      ctx.fillStyle = e.col;
+      ctx.beginPath(); ctx.arc(ix, iy, eyeR, 0, Math.PI*2); ctx.fill();
+      ctx.shadowBlur = 0;
+      // Pupil
+      ctx.fillStyle = '#000';
+      ctx.beginPath(); ctx.arc(ix, iy, eyeR * 0.55, 0, Math.PI*2); ctx.fill();
+      // Catchlight
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.arc(ix - eyeR * 0.18, iy - eyeR * 0.18, eyeR * 0.15, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  // ── Layer 6: damage cracks when HP < 50% ────────────────────────────────
+  if (hpFrac < 0.5) {
+    const intensity = 1 - hpFrac * 2;
+    ctx.save();
+    ctx.shadowColor = e.col; ctx.shadowBlur = 8;
+    ctx.strokeStyle = `rgba(255,255,255,${0.4 + 0.5 * intensity})`;
+    ctx.lineWidth = 1.2 + intensity;
+    ctx.lineCap = 'round';
+    const crackCount = 3 + Math.floor(intensity * 4);
+    const seed = (e.id || 0) * 31;
+    for (let i = 0; i < crackCount; i++) {
+      const a = i * 1.7 + seed;
+      const r1 = e.r * 0.08, r2 = e.r * 0.62;
+      ctx.beginPath();
+      ctx.moveTo(e.x + Math.cos(a) * r1, e.y + Math.sin(a) * r1);
+      for (let k = 1; k <= 3; k++) {
+        const t = k / 3;
+        const r = r1 + (r2 - r1) * t;
+        const j = Math.sin(i * 7.3 + k * 4.1 + seed) * 0.22;
+        ctx.lineTo(e.x + Math.cos(a + j) * r, e.y + Math.sin(a + j) * r);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+}
+
 // ── Render ────────────────────────────────────────────────────────────────────
 function render() {
   const CW=cvs.width, CH=cvs.height;
@@ -6469,40 +6870,7 @@ function render() {
     ctx.beginPath(); ctx.ellipse(e.x, e.y+e.r-1, e.r*0.9, e.r*0.32, 0, 0, Math.PI*2); ctx.fill();
 
     if (e.isBoss) {
-      // Boss aura/ring flair drawn directly
-      const phase = e.spinPhase || 0;
-      ctx.save();
-      ctx.shadowColor = e.col; ctx.shadowBlur = 36;
-      ctx.strokeStyle = `rgba(255,255,255,${0.20 + 0.15*Math.sin(phase*2)})`;
-      ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.arc(e.x, e.y, e.r + 14 + 4*Math.sin(phase*2), 0, Math.PI*2); ctx.stroke();
-      ctx.translate(e.x, e.y); ctx.rotate(phase);
-      ctx.setLineDash([10, 8]);
-      ctx.strokeStyle = e.col; ctx.lineWidth = 2.5;
-      ctx.beginPath(); ctx.arc(0,0, e.r + 24, 0, Math.PI*2); ctx.stroke();
-      ctx.setLineDash([6, 12]);
-      ctx.rotate(-phase*2.2);
-      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.2;
-      ctx.beginPath(); ctx.arc(0,0, e.r + 34, 0, Math.PI*2); ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.restore();
-      // Boss body (still drawn fresh — only one boss)
-      ctx.save();
-      ctx.shadowColor = e.col; ctx.shadowBlur = 30;
-      if (e.flash > 0) {
-        ctx.fillStyle = '#fff';
-      } else {
-        const eg = ctx.createRadialGradient(e.x-e.r*0.3, e.y-e.r*0.3, 1, e.x, e.y, e.r);
-        eg.addColorStop(0, 'rgba(255,255,255,0.6)');
-        eg.addColorStop(0.45, e.col);
-        eg.addColorStop(1, '#1a0006');
-        ctx.fillStyle = eg;
-      }
-      ctx.beginPath(); ctx.arc(e.x,e.y,e.r,0,Math.PI*2); ctx.fill();
-      ctx.shadowBlur = 0;
-      ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(e.x,e.y,e.r,0,Math.PI*2); ctx.stroke();
-      ctx.restore();
+      drawBoss(e);
     } else {
       // Fast path — drawImage from sprite cache (shape-aware silhouette)
       const variant = (e.flash > 0) ? 'flash' : 'body';

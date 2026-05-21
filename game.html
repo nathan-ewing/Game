@@ -2057,10 +2057,13 @@ const CHAMPIONS = [
   {
     id:'lancer', name:'LANCER',
     tag:'PIERCING · HEAVY',
-    desc:'One slow, devastating shot. The chrome melts straight through three enemies.',
+    desc:'One slow, devastating shot. Pierces deeper every 10 levels.',
     stats:{ hp:110, mhp:110, spd:195, sDmg:40, sInt:1.50, sPierce:3, auraDmg:0, mag:115, rerolls:2 },
     weapon:'blaster', weaponScale:1.45,
     palette:{ TRIM:'#ff7a00', ACCENT:'#ffd84a', ARMOR_LIGHT:'#7a6a4a', ARMOR_MID:'#3a3020', ARMOR_DARK:'#1a1008', EYE:'#ff7a00' },
+    // Penetrator is baked in as a passive level milestone (+1 pierce at lv 10, 20, 30…),
+    // so it's removed from her skill pool to avoid double-dipping.
+    excludeSkills:['Penetrator'],
     // The Lancer is built around heavy single shots — keep her from over-stacking
     // speed. These caps override the global UNCAPPED_SKILLS set.
     skillCaps:{ 'Rapid Fire':5, 'Sprint':3 },
@@ -3073,6 +3076,26 @@ function sfxBossSpawn() {
 // ── Level-up UI ───────────────────────────────────────────────────────────────
 // Past level 25 — no skill choice screen. Instead, fully heal the player and play
 // a celebratory effect. Leveling continues forever; only skill picks stop.
+// Champion-specific passive milestones — fire on every P.lv++ and grant
+// stat bumps that don't consume a skill slot. Extend here per-champion as
+// needed. Called from every level-up site (gem pickup, fruit pickup, dev).
+function applyLevelMilestones() {
+  if (!P || !selectedChampion) return;
+  // Lancer — passively gains +1 shot pierce every 10 levels. Replaces her
+  // ability to pick Penetrator (which is in her excludeSkills).
+  if (selectedChampion.id === 'lancer' && P.lv > 0 && P.lv % 10 === 0) {
+    P.sPierce++;
+    xpPops.push({
+      x: P.x, y: P.y - P.r - 8,
+      vy: -60, life: 1.6, ml: 1.6,
+      text: '+1 PIERCE',
+      val: P.sPierce, col: '#ffd84a',
+    });
+    burst(P.x, P.y, '#ffd84a', 14, 140, 0.5);
+    burst(P.x, P.y, '#ffffff',  6, 200, 0.35);
+  }
+}
+
 function showLevelUp() {
   mode='levelup';
   sfxLevelUp();
@@ -4723,6 +4746,7 @@ function update(dt) {
         P.xp-=P.xpN; P.lv++;
         // Progressive XP curve — increases more steeply as level rises
         P.xpN = Math.round(P.xpN * 1.42 + 4 + P.lv * 0.6);
+        applyLevelMilestones();
         flashAlpha = 1.0;
         showLevelUp(); return;
       }
@@ -4769,6 +4793,7 @@ function update(dt) {
         if (P.xp >= P.xpN) {
           P.xp -= P.xpN; P.lv++;
           P.xpN = Math.round(P.xpN * 1.42 + 4 + P.lv * 0.6);
+          applyLevelMilestones();
           flashAlpha = 1.0;
           showLevelUp(); return;
         }
@@ -8887,6 +8912,7 @@ window.dev = {
       P.xp = 0;
       P.lv++;
       P.xpN = Math.round(P.xpN * 1.42 + 4 + P.lv * 0.6);
+      applyLevelMilestones();
     }
     showLevelUp();
     console.log('[dev] now level', P.lv, '— pick your skill');

@@ -1817,8 +1817,10 @@ const CHAMPIONS = [
     stats:{ hp:90, mhp:90, spd:205, sDmg:11, sInt:1.05, sPierce:1, auraDmg:20, auraR:140, mag:130, rerolls:2 },
     weapon:'blaster', weaponScale:0.95,
     palette:{ TRIM:'#b400ff', ACCENT:'#ff2a6d', ARMOR_LIGHT:'#3b2848', ARMOR_MID:'#22162a', ARMOR_DARK:'#0a0014', EYE:'#ff2a6d' },
-    // Reaper relies on aura — these shot-buff skills are removed from her pool.
-    excludeSkills:['Penetrator','More Power!!!'],
+    // Reaper relies on aura — Penetrator is still removed from her pool.
+    // More Power!!! is available but capped at 5 so it can't fully overshadow her aura kit.
+    excludeSkills:['Penetrator'],
+    skillCaps:{ 'More Power!!!':5 },
   },
   {
     id:'lancer', name:'LANCER',

@@ -1472,7 +1472,7 @@ const HARD_CAPS = new Map([
   ['Drone Power',   15],
   ['Aura Power',    15],
   ['Cannon Power',          15],
-  ['More, Give Me More!',    3],
+  ['More, Give Me More!',    5],
   ['Magnetism',              3],
   ['Plasma Shield',  4],
 ]);
@@ -4957,13 +4957,19 @@ function update(dt) {
     P.strikeT -= dt;
     if (P.strikeT <= 0) {
       // Build candidate list: prefer enemies within 400px, fall back to any.
+      // Real bosses get a 3× weighted entry so the cannon has a slightly
+      // higher chance of pinning a boss than a single grunt — feels smart
+      // without making strikes ignore mobs when the screen is crowded.
       const near = [];
       const any  = [];
+      const BOSS_WEIGHT = 3;
       for (const en of enemies) {
         if (en.isBoss && !en.isMiniBoss) {
-          // Real bosses are valid targets too — they're a giant point of damage.
-          any.push(en);
-          if (dist(en, P) < 500) near.push(en);
+          const inRange = dist(en, P) < 500; // bosses are big — slightly larger detect radius
+          for (let w = 0; w < BOSS_WEIGHT; w++) {
+            any.push(en);
+            if (inRange) near.push(en);
+          }
           continue;
         }
         any.push(en);

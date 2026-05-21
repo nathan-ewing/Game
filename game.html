@@ -8303,6 +8303,145 @@ requestAnimationFrame(titleBg);
   addEventListener('keydown',     gestureStart, true);
 })();
 
+// ── DEV / PLAYTEST CONSOLE ───────────────────────────────────────────────────
+// All functions live under `dev.*` and are safe to call from the DevTools
+// console (F12). Type `dev.help()` for a list. Persistent commands save to
+// localStorage; transient commands only affect the current run.
+window.dev = {
+  help() {
+    const lines = [
+      '%cNEON CRUSADE — dev console',
+      'dev.unlockAll()           — unlock every champion (persists)',
+      'dev.unlockAchievements()  — flag every achievement as unlocked (persists)',
+      'dev.lockAll()             — lock every champion except Crusader (persists)',
+      'dev.heal()                — refill HP (current run only)',
+      'dev.god(on=true)          — toggle invincibility (current run only)',
+      'dev.killAll()             — instantly kill every on-screen non-boss',
+      'dev.warp(n)               — fast-forward gt so the next boss spawns at wave n',
+      'dev.giveLevels(n=1)       — grant N instant level-ups (current run only)',
+      'dev.printState()          — dump key player + run state to the console',
+    ];
+    console.log(lines.join('\n'), 'color:#ff0080;font-weight:bold;font-size:14px');
+    return undefined;
+  },
+
+  unlockAll() {
+    for (const c of CHAMPIONS) unlockedChampions.add(c.id);
+    saveChampionUnlocks();
+    // Re-render the champion-select list if it's currently open
+    if (document.getElementById('champion-panel').style.display === 'block') {
+      openChampionSelect(); // re-render the list with new lock state
+    }
+    console.log('[dev] unlocked:', [...unlockedChampions].join(', '));
+    return [...unlockedChampions];
+  },
+
+  lockAll() {
+    unlockedChampions = new Set(['crusader']);
+    saveChampionUnlocks();
+    if (document.getElementById('champion-panel').style.display === 'block') {
+      openChampionSelect(); // re-render the list with new lock state
+    }
+    console.log('[dev] locked — only Crusader available');
+    return ['crusader'];
+  },
+
+  unlockAchievements() {
+    for (const a of ACHIEVEMENTS) unlockedAchievements.add(a.id);
+    try { localStorage.setItem(ACH_KEY, JSON.stringify([...unlockedAchievements])); } catch(e){}
+    console.log('[dev] unlocked', unlockedAchievements.size, 'achievements');
+    return [...unlockedAchievements];
+  },
+
+  heal() {
+    if (!P) { console.warn('[dev] not in a run'); return; }
+    P.hp = P.mhp;
+    burst(P.x, P.y, '#00ff66', 18, 130, 0.6);
+    console.log('[dev] HP restored to', P.mhp);
+  },
+
+  god(on = true) {
+    if (!P) { console.warn('[dev] not in a run'); return; }
+    if (on) {
+      P._godSaved = P._godSaved || { mhp: P.mhp };
+      P.mhp = 1e9;
+      P.hp  = P.mhp;
+      P.inv = 1e9;
+      console.log('[dev] god mode ON');
+    } else {
+      if (P._godSaved) { P.mhp = P._godSaved.mhp; P.hp = Math.min(P.hp, P.mhp); }
+      P.inv = 0;
+      delete P._godSaved;
+      console.log('[dev] god mode OFF');
+    }
+  },
+
+  killAll() {
+    if (!enemies) { console.warn('[dev] not in a run'); return; }
+    let n = 0;
+    for (let j = enemies.length - 1; j >= 0; j--) {
+      const e = enemies[j];
+      if (e.isBoss && !e.isMiniBoss) continue;
+      hitEnemy(e, 1e9, j);
+      n++;
+    }
+    console.log('[dev] vaporized', n, 'enemies');
+  },
+
+  warp(targetWave) {
+    if (typeof targetWave !== 'number' || targetWave < 1) {
+      console.warn('[dev] usage: dev.warp(N) where N is the wave number you want next');
+      return;
+    }
+    // wavesCleared = waves COMPLETED. Wave N requires N-1 bosses already dead.
+    // Fast-forward gt to just before that boss spawn and update nextBossAt.
+    const targetGt = (targetWave - 1) * BOSS_INTERVAL - 8;  // 8s before boss
+    if (targetGt > gt) {
+      gt = targetGt;
+      nextBossAt = (targetWave - 1) * BOSS_INTERVAL;
+      waveStartT = gt - BOSS_INTERVAL + 8;
+      waveEventTriggered.clear();
+      console.log('[dev] warped to gt=' + Math.round(gt) + ' — boss', targetWave - 1, 'in 8s');
+    } else {
+      console.warn('[dev] already past that point (gt=' + Math.round(gt) + ')');
+    }
+  },
+
+  giveLevels(n = 1) {
+    if (!P) { console.warn('[dev] not in a run'); return; }
+    for (let i = 0; i < n; i++) {
+      P.xp = P.xpN; // trigger one level on the next update tick
+      // Manually run the level-up since we're not in update()
+      P.xp = 0;
+      P.lv++;
+      P.xpN = Math.round(P.xpN * 1.42 + 4 + P.lv * 0.6);
+    }
+    showLevelUp();
+    console.log('[dev] now level', P.lv, '— pick your skill');
+  },
+
+  printState() {
+    if (!P) { console.warn('[dev] not in a run'); return; }
+    console.log({
+      level: P.lv,
+      hp: P.hp + '/' + P.mhp,
+      spd: P.spd,
+      sDmg: P.sDmg, sInt: P.sInt.toFixed(2), sPierce: P.sPierce,
+      orbs: P.orbs, oDmg: P.oDmg,
+      auraDmg: P.auraDmg, auraR: P.auraR,
+      strikeDmg: P.strikeDmg, strikeInt: P.strikeInt, strikeCount: P.strikeCount,
+      shield: P.shield || 0,
+      regen: P.regen, mag: P.mag,
+      runTime: Math.round(gt) + 's',
+      wavesCleared: wavesCleared,
+      kills: kills,
+      skillStacks: Object.fromEntries(skillCounts),
+    });
+  },
+};
+console.log('%c[dev] type dev.help() for playtest commands',
+  'color:#00ffff;background:#000;padding:3px 8px;border:1px solid #00ffff');
+
 // ── Initial-box auto-advance ──────────────────────────────────────────────────
 const IDS = ['i0','i1','i2'];
 IDS.forEach((id, idx) => {

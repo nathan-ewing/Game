@@ -1493,7 +1493,7 @@ function pickUps(n=3) {
   //   1. Champion-specific cap (tightest restriction, for character identity).
   //   2. HARD_CAPS (global cap that backstops UNCAPPED_SKILLS).
   //   3. UNCAPPED_SKILLS — unlimited if listed.
-  //   4. Regeneration — 2.
+  //   4. Regeneration — 3.
   //   5. Default — 5.
   const champCaps = (selectedChampion && selectedChampion.skillCaps) || {};
   pool = pool.filter(u => {
@@ -1501,7 +1501,7 @@ function pickUps(n=3) {
     if (champCaps[u.n] !== undefined)   cap = champCaps[u.n];
     else if (HARD_CAPS.has(u.n))        cap = HARD_CAPS.get(u.n);
     else if (UNCAPPED_SKILLS.has(u.n))  return true;
-    else if (u.n === 'Regeneration')    cap = 2;
+    else if (u.n === 'Regeneration')    cap = 3;
     else                                cap = 5;
     return (skillCounts.get(u.n) || 0) < cap;
   });

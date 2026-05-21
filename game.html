@@ -1397,15 +1397,19 @@ function pickUps(n=3) {
   // Per-champion banned skills (e.g. Reaper can't pick Penetrator / More Power!!!)
   const banned = (selectedChampion && selectedChampion.excludeSkills) || [];
   pool = pool.filter(u => !banned.includes(u.n));
-  // Cap individual skill stacks — uncapped skills bypass everything, then
-  // champion-specific caps win, then Regeneration's 2, then default 5.
+  // Cap individual skill stacks — priority order:
+  //   1. Champion-specific cap (wins over everything — lets a champion still be
+  //      restricted from over-stacking a globally-uncapped skill).
+  //   2. UNCAPPED_SKILLS — unlimited if listed.
+  //   3. Regeneration — 2.
+  //   4. Default — 5.
   const champCaps = (selectedChampion && selectedChampion.skillCaps) || {};
   pool = pool.filter(u => {
-    if (UNCAPPED_SKILLS.has(u.n)) return true;
     let cap;
     if (champCaps[u.n] !== undefined) cap = champCaps[u.n];
-    else if (u.n === 'Regeneration')  cap = 2;
-    else                              cap = 5;
+    else if (UNCAPPED_SKILLS.has(u.n)) return true;
+    else if (u.n === 'Regeneration')   cap = 2;
+    else                               cap = 5;
     return (skillCounts.get(u.n) || 0) < cap;
   });
   return [...pool].sort(()=>Math.random()-.5).slice(0, Math.min(n, pool.length));
@@ -1823,6 +1827,9 @@ const CHAMPIONS = [
     stats:{ hp:110, mhp:110, spd:195, sDmg:40, sInt:1.50, sPierce:3, auraDmg:0, mag:115, rerolls:2 },
     weapon:'blaster', weaponScale:1.45,
     palette:{ TRIM:'#ff7a00', ACCENT:'#ffd84a', ARMOR_LIGHT:'#7a6a4a', ARMOR_MID:'#3a3020', ARMOR_DARK:'#1a1008', EYE:'#ff7a00' },
+    // The Lancer is built around heavy single shots — keep her from over-stacking
+    // speed. These caps override the global UNCAPPED_SKILLS set.
+    skillCaps:{ 'Rapid Fire':2, 'Sprint':2 },
   },
   {
     id:'swordmaster', name:'SWORD MASTER',

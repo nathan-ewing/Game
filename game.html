@@ -1125,6 +1125,7 @@ let chosenSkills = new Set();   // up to 7 unique skill names picked this run
 let skillCounts = new Map();    // name -> times picked this run
 const SKILL_SLOT_CAP = 7;
 let rerolls = 2;                // per-run reroll budget for the level-up screen
+let maxRerolls = 2;             // captured at run start so the "N / M" display is correct per-champion
 const REROLLS_PER_RUN = 2;
 let vacuumActiveT = 0;          // seconds remaining of global vacuum drag
 const VACUUM_DURATION = 2.5;
@@ -1138,7 +1139,7 @@ const MAX_ICE_CUBES = 1;
 const MAX_GHOSTS = 1;
 const MAX_MINIGUNS = 1;
 const MAX_EMPS = 1;
-const EMP_DROP_CHANCE = 0.0015;  // rarest drop by a wide margin — ~1 in 670 kills
+const EMP_DROP_CHANCE = 0.0025;  // rarest drop by a wide margin — ~1 in 400 kills
 const EMP_RADIUS = 455;          // kill radius when activated (was 260; +75%)
 const ICE_DROP_CHANCE = 0.018;
 const GHOST_DROP_CHANCE = 0.018;
@@ -1360,20 +1361,26 @@ function gemTierFor(hp) {
 }
 
 // ── Upgrades ─────────────────────────────────────────────────────────────────
+// Soft-cap helper: full multiplier for stacks 0-4, half-bonus from stack 5 onward.
+// e.g. More Power!!! with bonus=0.40 → ×1.40 for first 5 picks, ×1.20 thereafter.
+function _softMult(name, bonus) {
+  const stacks = skillCounts.get(name) || 0;
+  return 1 + (stacks >= 5 ? bonus * 0.5 : bonus);
+}
 const UPS = [
-  { n:'More Power!!!',   d:'+40% shot damage',                a:p=>{ p.sDmg=Math.round(p.sDmg*1.4); },                                f:'Your blade burns hotter.' },
+  { n:'More Power!!!',   d:'+40% shot damage  (½ past 5 stacks)', a:p=>{ p.sDmg=Math.round(p.sDmg * _softMult('More Power!!!', 0.40)); }, f:'Your blade burns hotter.' },
   { n:'Rapid Fire',      d:'Fire 30% faster',                  a:p=>{ p.sInt=Math.max(0.22,p.sInt*0.70); },                            f:'Strike before they can flee.' },
   { n:'Penetrator',      d:'Shots pierce +1 extra enemy',      a:p=>{ p.sPierce++; },                                                  f:'The chrome melts before your wrath.' },
   { n:'Full Contact Drone', d:'Deploy an orbiting combat drone', a:p=>{ p.orbs++; },                                                  f:'It hovers. It hunts. It collides.' },
-  { n:'Drone Power',        d:'+50% drone damage',               a:p=>{ p.oDmg=Math.round(p.oDmg*1.5); },                              f:'Higher voltage. Heavier impact.' },
+  { n:'Drone Power',        d:'+50% drone damage (½ past 5 stacks)', a:p=>{ p.oDmg=Math.round(p.oDmg * _softMult('Drone Power', 0.50)); }, f:'Higher voltage. Heavier impact.' },
   { n:'Drone Speed',        d:'Drones orbit 30% faster',         a:p=>{ p.oSpd *= 1.30; },                                             f:'Rotors at maximum.' },
   { n:'Aura',            d:'Emit a continually damaging aura', a:p=>{ p.auraDmg=Math.max(p.auraDmg,18); },                             f:'The crusade follows you.' },
-  { n:'Aura Power',      d:'+55% aura damage',                 a:p=>{ if(p.auraDmg>0) p.auraDmg=Math.round(p.auraDmg*1.55); },       f:'Heat from your shadow.',    requires:p=>p.auraDmg>0 },
+  { n:'Aura Power',      d:'+55% aura damage (½ past 5 stacks)', a:p=>{ if(p.auraDmg>0) p.auraDmg=Math.round(p.auraDmg * _softMult('Aura Power', 0.55)); }, f:'Heat from your shadow.',    requires:p=>p.auraDmg>0 },
   { n:'Aura Reach',      d:'Aura radius +50',                  a:p=>{ p.auraR+=50; },                                                  f:'Cleanse a wider battlefield.', requires:p=>p.auraDmg>0 },
   { n:'Sprint',          d:'+22% movement speed',              a:p=>{ p.spd*=1.22; },                                                  f:'Mortals slow. You do not.' },
-  { n:'Vitality',        d:'+60 max HP, restore 60 HP',        a:p=>{ p.mhp+=60; p.hp=Math.min(p.hp+60,p.mhp); },                      f:'Faith mended.' },
+  { n:'Vitality',        d:'+80 max HP, restore 80 HP',        a:p=>{ p.mhp+=80; p.hp=Math.min(p.hp+80,p.mhp); },                      f:'Faith mended.' },
   { n:'Magnetism',       d:'Attract pickups from farther',     a:p=>{ p.mag+=90; },                                                    f:'All things drawn to a hero.' },
-  { n:'Regeneration',    d:'Slowly restore HP over time',      a:p=>{ p.regen+=0.7; },                                                 f:'Wounds knit in neon light.' },
+  { n:'Regeneration',    d:'Restore 1% max HP per second',     a:p=>{ p.regen+=0.01; },                                                f:'Wounds knit in neon light.' },
   // Sword Master only — only appears once Crescent Slash is unlocked.
   { n:'Bigger is Better', d:'Crescent Slash carves a wider arc', a:p=>{ p.crescentSize = (p.crescentSize||1) * 1.30; },                  f:'A broader edge. Fewer survivors.',
     championOnly:'swordmaster', requires:p=>p.crescentRange > 0 },
@@ -1812,7 +1819,7 @@ const CHAMPIONS = [
     id:'crusader', name:'CRUSADER',
     tag:'BALANCED',
     desc:'A steady hand and a steady blaster. No surprises, no weaknesses.',
-    stats:{ hp:100, mhp:100, spd:210, sDmg:22, sInt:0.90, sPierce:1, auraDmg:0, mag:115, rerolls:2 },
+    stats:{ hp:100, mhp:100, spd:210, sDmg:22, sInt:0.90, sPierce:1, auraDmg:0, mag:115, rerolls:3 },
     weapon:'blaster', weaponScale:1.0,
     palette:{ TRIM:'#00ffff', ACCENT:'#ff0080', ARMOR_LIGHT:'#6a6a82', ARMOR_MID:'#3a3a52', ARMOR_DARK:'#16162a', EYE:'#00ffff' },
   },
@@ -1823,10 +1830,9 @@ const CHAMPIONS = [
     stats:{ hp:90, mhp:90, spd:205, sDmg:11, sInt:1.05, sPierce:1, auraDmg:20, auraR:140, mag:130, rerolls:2 },
     weapon:'pistol', weaponScale:1.0,
     palette:{ TRIM:'#b400ff', ACCENT:'#ff2a6d', ARMOR_LIGHT:'#3b2848', ARMOR_MID:'#22162a', ARMOR_DARK:'#0a0014', EYE:'#ff2a6d' },
-    // Reaper relies on aura — Penetrator is still removed from her pool.
-    // More Power!!! is available but capped at 5 so it can't fully overshadow her aura kit.
-    excludeSkills:['Penetrator'],
-    skillCaps:{ 'More Power!!!':5 },
+    // Reaper relies on aura — shot-buff skills are available but capped at 5
+    // each so they can supplement her kit without overshadowing it.
+    skillCaps:{ 'More Power!!!':5, 'Penetrator':5 },
   },
   {
     id:'lancer', name:'LANCER',
@@ -1837,13 +1843,13 @@ const CHAMPIONS = [
     palette:{ TRIM:'#ff7a00', ACCENT:'#ffd84a', ARMOR_LIGHT:'#7a6a4a', ARMOR_MID:'#3a3020', ARMOR_DARK:'#1a1008', EYE:'#ff7a00' },
     // The Lancer is built around heavy single shots — keep her from over-stacking
     // speed. These caps override the global UNCAPPED_SKILLS set.
-    skillCaps:{ 'Rapid Fire':5, 'Sprint':2 },
+    skillCaps:{ 'Rapid Fire':5, 'Sprint':3 },
   },
   {
     id:'swordmaster', name:'SWORD MASTER',
     tag:'PLASMA BLADE · NIMBLE',
     desc:'A neon plasma blade and lightning reflexes. Starts melee only — every swing cleaves the air around you.',
-    stats:{ hp:80, mhp:80, spd:260, sDmg:24, sInt:0.85, sPierce:1, auraDmg:0, mag:120, rerolls:2, isMelee:true, meleeR:74 },
+    stats:{ hp:100, mhp:100, spd:260, sDmg:24, sInt:0.85, sPierce:1, auraDmg:0, mag:120, rerolls:2, isMelee:true, meleeR:74 },
     weapon:'sword', weaponScale:1.0,
     saberColor:'#00ff66',  // neon-green plasma blade — also colors every sword attack effect
     palette:{ TRIM:'#00ff66', ACCENT:'#ffd700', ARMOR_LIGHT:'#88889a', ARMOR_MID:'#42425a', ARMOR_DARK:'#1c1c2e', EYE:'#00ff66' },
@@ -1916,6 +1922,7 @@ function startGame() {
   chosenSkills = new Set();
   skillCounts = new Map();
   rerolls = selectedChampion.stats.rerolls || REROLLS_PER_RUN;
+  maxRerolls = rerolls;
   vacuumActiveT = 0;
   gt=0; kills=0; shake=0; spawnTimer=0;
   comboCount=0; comboTimer=0; lastKillTime=0; flashAlpha=0;
@@ -2960,7 +2967,7 @@ function updateRerollButton() {
   if (rerolls > 0) {
     btn.disabled = false;
     btn.classList.remove('btn-disabled');
-    btn.innerHTML = `↻ REROLL  <span class="reroll-count">${rerolls} / ${REROLLS_PER_RUN}</span>`;
+    btn.innerHTML = `↻ REROLL  <span class="reroll-count">${rerolls} / ${maxRerolls}</span>`;
   } else {
     btn.disabled = true;
     btn.classList.add('btn-disabled');
@@ -4043,10 +4050,11 @@ function update(dt) {
   // Screen flash decay
   if (flashAlpha > 0) flashAlpha = Math.max(0, flashAlpha - dt*2.2);
 
-  // Regen
+  // Regen — P.regen is a fraction (e.g. 0.01 = 1% of max HP per second per stack).
+  // Scales naturally with Vitality investment.
   if(P.regen>0){
     P.regenT+=dt;
-    if(P.regenT>=1){ P.regenT=0; P.hp=Math.min(P.mhp,P.hp+P.regen); }
+    if(P.regenT>=1){ P.regenT=0; P.hp=Math.min(P.mhp,P.hp + P.mhp * P.regen); }
   }
 
   // Shot weapon — minigun buff: fire at 500% of base rate, min 2x current rate.

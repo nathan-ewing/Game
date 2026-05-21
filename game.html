@@ -4885,14 +4885,29 @@ function update(dt) {
     }
     if(d < P.r + em.r + 4){
       emps.splice(i,1);
-      // Collect indices of every non-boss enemy inside the kill radius.
+      // Step 1: damage real bosses in range — they survive the EMP, taking a
+      // ~25% max-HP chunk capped so they never drop below 1 HP. Done BEFORE
+      // the kill-loop so the boss damage and the carnage land on the same frame.
+      for(let j=enemies.length-1;j>=0;j--){
+        const en=enemies[j];
+        if(en.isBoss && !en.isMiniBoss) {
+          const dx=en.x-P.x, dy=en.y-P.y;
+          if(dx*dx + dy*dy <= EMP_RADIUS*EMP_RADIUS) {
+            const empDmg = Math.min(en.hp - 1, Math.round(en.mhp * 0.25));
+            if (empDmg > 0) hitEnemy(en, empDmg, j);
+            burst(en.x, en.y, '#00ffee', 14, 160, 0.5);
+          }
+        }
+      }
+      // Step 2: collect indices of every non-boss enemy inside the kill radius.
       // Mini-bosses (isBoss && isMiniBoss) ARE killed — only the real tiered
-      // bosses (isBoss && !isMiniBoss) survive the EMP.
+      // bosses (isBoss && !isMiniBoss) are damaged-but-not-killed above.
       const toKill = [];
       for(let j=enemies.length-1;j>=0;j--){
         const en=enemies[j];
         if(en.isBoss && !en.isMiniBoss) continue;
-        if(dist(en,P) <= EMP_RADIUS) toKill.push(j);
+        const dx=en.x-P.x, dy=en.y-P.y;
+        if(dx*dx + dy*dy <= EMP_RADIUS*EMP_RADIUS) toKill.push(j);
       }
       for(const j of toKill){
         const en = enemies[j];
@@ -4911,8 +4926,12 @@ function update(dt) {
         if(gt - lastKillTime < 1.2) comboCount++; else comboCount = 1;
         lastKillTime = gt; comboTimer = 1.2;
       }
-      // Splice in descending order to keep indices valid
-      for(let j=toKill.length-1;j>=0;j--) enemies.splice(toKill[j],1);
+      // Splice in DESCENDING order so indices stay valid. toKill was built
+      // by backward iteration → already descending → iterate FORWARD over it.
+      // (Previous bug: iterating backward over toKill spliced ascending, which
+      //  shifted later indices downward and could remove the wrong enemy —
+      //  including a real boss whose index happened to be one of the shifted slots.)
+      for(let j=0; j<toKill.length; j++) enemies.splice(toKill[j], 1);
       // Visual: expanding ring + flash
       empRings.push({x:P.x, y:P.y, r:P.r, maxR:EMP_RADIUS, life:0.55, ml:0.55});
       burst(P.x, P.y, '#00ffee', 35, 340, 0.9);

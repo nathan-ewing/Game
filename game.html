@@ -988,7 +988,8 @@ function updateWaveEvents(dt) {
           // Damage player if in the zone
           if (P.inv <= 0 && Math.hypot(P.x - m.x, P.y - m.y) < m.radius + P.r) {
             const stormMul = (soulStormT > 0) ? 2 : 1;
-            P.hp -= 40 * waveDmgMult() * stormMul;
+            const shieldMul = Math.max(0.4, 1 - 0.08 * (P.shield || 0));
+            P.hp -= 40 * waveDmgMult() * stormMul * shieldMul;
             P.inv = 0.7;
             shake = 0.6;
             glitchT = GLITCH_DURATION;
@@ -1379,6 +1380,7 @@ const UPS = [
   { n:'Aura Reach',      d:'Aura radius +50',                  a:p=>{ p.auraR+=50; },                                                  f:'Cleanse a wider battlefield.', requires:p=>p.auraDmg>0 },
   { n:'Sprint',          d:'+22% movement speed',              a:p=>{ p.spd*=1.22; },                                                  f:'Mortals slow. You do not.' },
   { n:'Vitality',        d:'+80 max HP, restore 80 HP',        a:p=>{ p.mhp+=80; p.hp=Math.min(p.hp+80,p.mhp); },                      f:'Faith mended.' },
+  { n:'Plasma Shield',   d:'-8% damage taken',                 a:p=>{ p.shield=(p.shield||0)+1; },                                      f:'Synth-glass between you and the void.' },
   { n:'Magnetism',       d:'Attract pickups from farther',     a:p=>{ p.mag+=90; },                                                    f:'All things drawn to a hero.' },
   { n:'Regeneration',    d:'Restore 1% max HP per second',     a:p=>{ p.regen+=0.01; },                                                f:'Wounds knit in neon light.' },
   // Sword Master only — only appears once Crescent Slash is unlocked.
@@ -1388,9 +1390,19 @@ const UPS = [
 
 // Skills that can only be picked once — removed from the pool after they're unlocked.
 const ONE_TIME_SKILLS = new Set(['Aura']);
-// Skills with no stack cap — can be picked indefinitely. Champion-specific
-// cap overrides are also ignored for these.
+// Skills with no stack cap — can be picked indefinitely.
+// Champion-specific cap overrides AND HARD_CAPS entries override this.
 const UNCAPPED_SKILLS = new Set(['More Power!!!', 'Rapid Fire', 'Drone Power', 'Aura Power']);
+// Global hard caps that apply to all champions unless overridden by champCaps.
+// Used for the soft-capped damage skills (back-stop the late-game scaling) and
+// utility skills with sharp diminishing value.
+const HARD_CAPS = new Map([
+  ['More Power!!!', 15],
+  ['Drone Power',   15],
+  ['Aura Power',    15],
+  ['Magnetism',     3],
+  ['Plasma Shield', 4],
+]);
 
 function pickUps(n=3) {
   // Once 7 unique skills are locked in, only offer upgrades of those skills.
@@ -1411,18 +1423,19 @@ function pickUps(n=3) {
   const banned = (selectedChampion && selectedChampion.excludeSkills) || [];
   pool = pool.filter(u => !banned.includes(u.n));
   // Cap individual skill stacks — priority order:
-  //   1. Champion-specific cap (wins over everything — lets a champion still be
-  //      restricted from over-stacking a globally-uncapped skill).
-  //   2. UNCAPPED_SKILLS — unlimited if listed.
-  //   3. Regeneration — 2.
-  //   4. Default — 5.
+  //   1. Champion-specific cap (tightest restriction, for character identity).
+  //   2. HARD_CAPS (global cap that backstops UNCAPPED_SKILLS).
+  //   3. UNCAPPED_SKILLS — unlimited if listed.
+  //   4. Regeneration — 2.
+  //   5. Default — 5.
   const champCaps = (selectedChampion && selectedChampion.skillCaps) || {};
   pool = pool.filter(u => {
     let cap;
-    if (champCaps[u.n] !== undefined) cap = champCaps[u.n];
-    else if (UNCAPPED_SKILLS.has(u.n)) return true;
-    else if (u.n === 'Regeneration')   cap = 2;
-    else                               cap = 5;
+    if (champCaps[u.n] !== undefined)   cap = champCaps[u.n];
+    else if (HARD_CAPS.has(u.n))        cap = HARD_CAPS.get(u.n);
+    else if (UNCAPPED_SKILLS.has(u.n))  return true;
+    else if (u.n === 'Regeneration')    cap = 2;
+    else                                cap = 5;
     return (skillCounts.get(u.n) || 0) < cap;
   });
   return [...pool].sort(()=>Math.random()-.5).slice(0, Math.min(n, pool.length));
@@ -1711,6 +1724,40 @@ function initSkillIcons() {
     }
   });
 
+  // Plasma Shield — sci-fi hexagonal force field
+  _ic('Plasma Shield', (g) => {
+    g.shadowColor = '#00ffff'; g.shadowBlur = 10;
+    g.strokeStyle = '#00ffff'; g.lineWidth = 2.5;
+    g.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const a = i * Math.PI / 3 - Math.PI / 6; // flat-top hexagon
+      const x = c + Math.cos(a) * (c - 8);
+      const y = c + Math.sin(a) * (c - 8);
+      if (i === 0) g.moveTo(x, y); else g.lineTo(x, y);
+    }
+    g.closePath();
+    g.stroke();
+    // Inner translucent fill
+    g.shadowBlur = 6;
+    g.fillStyle = 'rgba(0,255,255,0.22)';
+    g.fill();
+    g.shadowBlur = 0;
+    // Center bright cross — reads at small sizes
+    g.strokeStyle = '#ffffff'; g.lineWidth = 2; g.lineCap = 'round';
+    g.beginPath();
+    g.moveTo(c - 5, c); g.lineTo(c + 5, c);
+    g.moveTo(c, c - 5); g.lineTo(c, c + 5);
+    g.stroke();
+    // Tiny corner accent dots for the "force-field nodes" feel
+    g.fillStyle = '#ff66c4';
+    for (let i = 0; i < 6; i++) {
+      const a = i * Math.PI / 3 - Math.PI / 6;
+      g.beginPath();
+      g.arc(c + Math.cos(a)*(c-8), c + Math.sin(a)*(c-8), 1.6, 0, Math.PI*2);
+      g.fill();
+    }
+  });
+
   // Aura Reach — ring with outward arrows
   _ic('Aura Reach', (g) => {
     g.strokeStyle = '#b400ff'; g.lineWidth = 2;
@@ -1898,6 +1945,8 @@ function makePlayer() {
     // misc
     mag:s.mag,
     regen:0, regenT:0,
+    shield:0,  // Plasma Shield stacks — each reduces incoming damage by 8%
+
     // melee / crescent (Sword Master)
     isMelee: !!s.isMelee,
     meleeR: s.meleeR || 0,
@@ -4315,7 +4364,8 @@ function update(dt) {
     }
     if(P.inv<=0 && !frozen && dist(e,P)<e.r+P.r){
       const stormMul = (soulStormT > 0) ? 2 : 1;
-      P.hp -= e.dmg * waveDmgMult() * stormMul;
+      const shieldMul = Math.max(0.4, 1 - 0.08 * (P.shield || 0));
+      P.hp -= e.dmg * waveDmgMult() * stormMul * shieldMul;
       P.inv=0.65; shake=0.45;
       glitchT = GLITCH_DURATION; // CRT chromatic-shift overlay flash
       burst(P.x,P.y,'#f44',8,80,0.4);
@@ -4332,7 +4382,8 @@ function update(dt) {
     }
     if (P.inv <= 0 && dist(s, P) < s.r + P.r) {
       const stormMul = (soulStormT > 0) ? 2 : 1;
-      P.hp -= s.dmg * waveDmgMult() * stormMul;
+      const shieldMul = Math.max(0.4, 1 - 0.08 * (P.shield || 0));
+      P.hp -= s.dmg * waveDmgMult() * stormMul * shieldMul;
       P.inv = 0.55; shake = 0.35;
       glitchT = GLITCH_DURATION;
       burst(P.x, P.y, s.col, 6, 70, 0.35);

@@ -1369,7 +1369,7 @@ const UPS = [
   { n:'Magnetism',       d:'Attract pickups from farther',     a:p=>{ p.mag+=90; },                                                    f:'All things drawn to a hero.' },
   { n:'Regeneration',    d:'Slowly restore HP over time',      a:p=>{ p.regen+=0.7; },                                                 f:'Wounds knit in neon light.' },
   // Sword Master only — only appears once Crescent Slash is unlocked.
-  { n:'Bigger is Better', d:'Crescent Slash carves a wider arc', a:p=>{ p.crescentSize = (p.crescentSize||1) * 1.40; },                  f:'A broader edge. Fewer survivors.',
+  { n:'Bigger is Better', d:'Crescent Slash carves a wider arc', a:p=>{ p.crescentSize = (p.crescentSize||1) * 1.25; },                  f:'A broader edge. Fewer survivors.',
     championOnly:'swordmaster', requires:p=>p.crescentRange > 0 },
 ];
 

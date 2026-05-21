@@ -829,7 +829,7 @@ let gt = 0, dt = 0, lastTs = 0;
 let kills = 0, shake = 0;
 const cam = { x:0, y:0 };
 
-let P, enemies, shots, gems, fruits, vacuums, parts, dmgTexts, xpPops, iceCubes, ghosts, miniguns, emps, empRings;
+let P, enemies, shots, gems, fruits, vacuums, parts, dmgTexts, xpPops, iceCubes, ghosts, miniguns, emps, empRings, strikes;
 let obstacles = [];   // {x, y, r, phase} — neon pillars scattered across the map
 
 // ── Wave mini-events (Meteor / Treasure / Mass Spawn / Soul Storm / Mini-Boss) ──
@@ -1378,6 +1378,10 @@ const UPS = [
   { n:'Aura',            d:'Emit a continually damaging aura', a:p=>{ p.auraDmg=Math.max(p.auraDmg,18); },                             f:'The crusade follows you.' },
   { n:'Aura Power',      d:'+55% aura damage (½ past 5 stacks)', a:p=>{ if(p.auraDmg>0) p.auraDmg=Math.round(p.auraDmg * _softMult('Aura Power', 0.55)); }, f:'Heat from your shadow.',    requires:p=>p.auraDmg>0 },
   { n:'Aura Reach',      d:'Aura radius +50',                  a:p=>{ p.auraR+=50; },                                                  f:'Cleanse a wider battlefield.', requires:p=>p.auraDmg>0 },
+  { n:'Orbital Cannon',  d:'Strike random enemies from orbit every 7s', a:p=>{ p.strikeDmg=Math.max(p.strikeDmg,110); p.strikeT=Math.min(p.strikeT||999,1.5); }, f:'They will not see the sky open.' },
+  { n:'Cannon Power',    d:'+45% strike damage  (½ past 5 stacks)', a:p=>{ if(p.strikeDmg>0) p.strikeDmg=Math.round(p.strikeDmg * _softMult('Cannon Power', 0.45)); }, f:'Bigger fish. Brighter sky.',   requires:p=>p.strikeDmg>0 },
+  { n:'Cannon Speed',    d:'Strikes 22% faster',               a:p=>{ if(p.strikeDmg>0) p.strikeInt=Math.max(1.5, p.strikeInt*0.78); }, f:'No reload. No respite.',         requires:p=>p.strikeDmg>0 },
+  { n:'Cannon Burst',    d:'+1 strike per volley',             a:p=>{ if(p.strikeDmg>0) p.strikeCount=(p.strikeCount||1)+1; },         f:'Triangulate. Triangulate. Triangulate.', requires:p=>p.strikeDmg>0 },
   { n:'Sprint',          d:'+22% movement speed',              a:p=>{ p.spd*=1.22; },                                                  f:'Mortals slow. You do not.' },
   { n:'Vitality',        d:'+80 max HP, restore 80 HP',        a:p=>{ p.mhp+=80; p.hp=Math.min(p.hp+80,p.mhp); },                      f:'Faith mended.' },
   { n:'Plasma Shield',   d:'-8% damage taken',                 a:p=>{ p.shield=(p.shield||0)+1; },                                      f:'Synth-glass between you and the void.' },
@@ -1389,10 +1393,10 @@ const UPS = [
 ];
 
 // Skills that can only be picked once — removed from the pool after they're unlocked.
-const ONE_TIME_SKILLS = new Set(['Aura']);
+const ONE_TIME_SKILLS = new Set(['Aura', 'Orbital Cannon']);
 // Skills with no stack cap — can be picked indefinitely.
 // Champion-specific cap overrides AND HARD_CAPS entries override this.
-const UNCAPPED_SKILLS = new Set(['More Power!!!', 'Rapid Fire', 'Drone Power', 'Aura Power']);
+const UNCAPPED_SKILLS = new Set(['More Power!!!', 'Rapid Fire', 'Drone Power', 'Aura Power', 'Cannon Power']);
 // Global hard caps that apply to all champions unless overridden by champCaps.
 // Used for the soft-capped damage skills (back-stop the late-game scaling) and
 // utility skills with sharp diminishing value.
@@ -1400,8 +1404,10 @@ const HARD_CAPS = new Map([
   ['More Power!!!', 15],
   ['Drone Power',   15],
   ['Aura Power',    15],
-  ['Magnetism',     3],
-  ['Plasma Shield', 4],
+  ['Cannon Power',  15],
+  ['Cannon Burst',   3],
+  ['Magnetism',      3],
+  ['Plasma Shield',  4],
 ]);
 
 function pickUps(n=3) {
@@ -1854,6 +1860,85 @@ function initSkillIcons() {
     g.fillRect(c-9, c-3, 18, 6);
   });
 
+  // Orbital Cannon — falling beam terminating in a ground impact ring
+  _ic('Orbital Cannon', (g) => {
+    g.shadowColor = '#00ffff'; g.shadowBlur = 10;
+    // Vertical beam from top
+    g.fillStyle = '#00ffff';
+    g.fillRect(c - 2, 4, 4, c + 1);
+    // Inner bright core
+    g.shadowBlur = 0;
+    g.fillStyle = '#ffffff';
+    g.fillRect(c - 1, 4, 2, c - 1);
+    // Impact ring on ground
+    g.shadowColor = '#00ffff'; g.shadowBlur = 8;
+    g.strokeStyle = '#00ffff'; g.lineWidth = 2;
+    g.beginPath(); g.arc(c, c + 7, 8, 0, Math.PI*2); g.stroke();
+    g.shadowBlur = 0;
+    // Magenta hot spot
+    g.fillStyle = '#ff0080';
+    g.beginPath(); g.arc(c, c + 7, 2.4, 0, Math.PI*2); g.fill();
+  });
+
+  // Cannon Power — angular lightning bolt
+  _ic('Cannon Power', (g) => {
+    g.shadowColor = '#ff0080'; g.shadowBlur = 10;
+    g.fillStyle = '#ff0080';
+    g.beginPath();
+    g.moveTo(c - 1, 4);
+    g.lineTo(c + 5, c - 2);
+    g.lineTo(c + 1, c - 1);
+    g.lineTo(c + 4, 2*c - 4);
+    g.lineTo(c - 4, c + 2);
+    g.lineTo(c, c + 1);
+    g.closePath();
+    g.fill();
+    g.shadowBlur = 0;
+    // Pink highlight stripe
+    g.fillStyle = '#ffaadd';
+    g.beginPath();
+    g.moveTo(c - 1, 5);
+    g.lineTo(c + 3, c - 2);
+    g.lineTo(c, c - 1);
+    g.closePath();
+    g.fill();
+  });
+
+  // Cannon Speed — three downward chevrons
+  _ic('Cannon Speed', (g) => {
+    g.shadowColor = '#00ffff'; g.shadowBlur = 8;
+    g.strokeStyle = '#00ffff'; g.lineWidth = 2.5; g.lineCap = 'round';
+    for (let i = 0; i < 3; i++) {
+      const y = 6 + i * 6;
+      g.beginPath();
+      g.moveTo(c - 7, y);
+      g.lineTo(c,     y + 5);
+      g.lineTo(c + 7, y);
+      g.stroke();
+    }
+    g.shadowBlur = 0;
+  });
+
+  // Cannon Burst — three parallel beams
+  _ic('Cannon Burst', (g) => {
+    g.shadowColor = '#00ffff'; g.shadowBlur = 8;
+    g.strokeStyle = '#00ffff'; g.lineWidth = 2;
+    for (let i = -1; i <= 1; i++) {
+      g.beginPath();
+      g.moveTo(c + i * 6, 5);
+      g.lineTo(c + i * 6, 2*c - 6);
+      g.stroke();
+    }
+    g.shadowBlur = 0;
+    // Impact dots at the bottom of each beam
+    g.fillStyle = '#ff66c4';
+    for (let i = -1; i <= 1; i++) {
+      g.beginPath();
+      g.arc(c + i * 6, 2*c - 5, 1.8, 0, Math.PI*2);
+      g.fill();
+    }
+  });
+
   // Restore — fallback heal card icon (green hex with medical cross).
   // Shown when the level-up pool has fewer than 3 real options so the player
   // always gets *something* from leveling, even after every skill is capped.
@@ -1969,6 +2054,8 @@ function makePlayer() {
     orbs:0, oDmg:16, oR:85, oSpd:2.8, oAngle:0, oCd:0,
     // aura weapon
     auraDmg:s.auraDmg||0, auraR:s.auraR||115, auraInt:1.0, auraT:0,
+    // orbital cannon — passive ranged strikes
+    strikeDmg:0, strikeInt:7.0, strikeCount:1, strikeR:70, strikeT:0,
     // misc
     mag:s.mag,
     regen:0, regenT:0,
@@ -1985,7 +2072,7 @@ function makePlayer() {
 function startGame() {
   P = makePlayer();
   enemies=[]; shots=[]; gems=[]; fruits=[]; vacuums=[]; parts=[];
-  dmgTexts=[]; xpPops=[]; iceCubes=[]; ghosts=[]; miniguns=[]; bossShots=[]; emps=[]; empRings=[];
+  dmgTexts=[]; xpPops=[]; iceCubes=[]; ghosts=[]; miniguns=[]; bossShots=[]; emps=[]; empRings=[]; strikes=[];
   freezeT=0; fleeT=0; minigunT=0;
   lastPowerupT = -999;
   waveEventTriggered = new Set();
@@ -4690,6 +4777,68 @@ function update(dt) {
     if(er.life <= 0) empRings.splice(i,1);
   }
 
+  // Orbital Cannon — passive ranged strikes that target random enemies near
+  // the player. Only fires when the player has at least one nearby target so
+  // we don't waste volleys into empty space.
+  if (P.strikeDmg > 0) {
+    P.strikeT -= dt;
+    if (P.strikeT <= 0) {
+      // Build candidate list: prefer enemies within 400px, fall back to any.
+      const near = [];
+      const any  = [];
+      for (const en of enemies) {
+        if (en.isBoss && !en.isMiniBoss) {
+          // Real bosses are valid targets too — they're a giant point of damage.
+          any.push(en);
+          if (dist(en, P) < 500) near.push(en);
+          continue;
+        }
+        any.push(en);
+        if (dist(en, P) < 400) near.push(en);
+      }
+      const pool = near.length > 0 ? near : any;
+      if (pool.length > 0) {
+        for (let k = 0; k < P.strikeCount; k++) {
+          const tgt = pool[Math.floor(Math.random() * pool.length)];
+          strikes.push({
+            x: tgt.x + (Math.random() - 0.5) * 18,
+            y: tgt.y + (Math.random() - 0.5) * 18,
+            state: 'aim',
+            t: 0.32,
+            dmg: P.strikeDmg,
+            r:   P.strikeR,
+          });
+        }
+        sfxCannonLaunch();
+      }
+      P.strikeT = P.strikeInt;
+    }
+    // Step through active strikes — transition aim → impact, apply damage once
+    for (let i = strikes.length - 1; i >= 0; i--) {
+      const s = strikes[i];
+      s.t -= dt;
+      if (s.state === 'aim' && s.t <= 0) {
+        s.state = 'impact';
+        s.t = 0.45;
+        // Damage every enemy in the blast radius (backwards-iterate so
+        // hitEnemy splices don't desync our index).
+        for (let j = enemies.length - 1; j >= 0; j--) {
+          const en = enemies[j];
+          const dx = en.x - s.x, dy = en.y - s.y;
+          if (dx*dx + dy*dy <= (s.r + en.r) * (s.r + en.r)) {
+            hitEnemy(en, s.dmg, j);
+          }
+        }
+        burst(s.x, s.y, '#00ffff', 16, 220, 0.55);
+        burst(s.x, s.y, '#ffffff',  8, 280, 0.40);
+        shake = Math.max(shake, 0.40);
+        sfxCannonImpact();
+      } else if (s.state === 'impact' && s.t <= 0) {
+        strikes.splice(i, 1);
+      }
+    }
+  }
+
   // Particles
   for(let i=parts.length-1;i>=0;i--){
     const p=parts[i];
@@ -4959,6 +5108,53 @@ function sfxEmpPickup() {
   g2.gain.setValueAtTime(0.45, t);
   g2.gain.exponentialRampToValueAtTime(0.001, t + 0.32);
   o2.start(t); o2.stop(t + 0.35);
+}
+
+function sfxCannonLaunch() {
+  if (!aCtx) return;
+  const t = aCtx.currentTime;
+  // Descending whistle — sine sweep from high to mid
+  const o = aCtx.createOscillator(), g = aCtx.createGain();
+  o.connect(g); g.connect(sfxGain || aCtx.destination);
+  o.type = 'sine';
+  o.frequency.setValueAtTime(2600, t);
+  o.frequency.exponentialRampToValueAtTime(520, t + 0.30);
+  g.gain.setValueAtTime(0.16, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.32);
+  o.start(t); o.stop(t + 0.34);
+}
+
+function sfxCannonImpact() {
+  if (!aCtx) return;
+  const t = aCtx.currentTime;
+  // Sub boom
+  const o = aCtx.createOscillator(), g = aCtx.createGain();
+  o.connect(g); g.connect(sfxGain || aCtx.destination);
+  o.type = 'sine';
+  o.frequency.setValueAtTime(180, t);
+  o.frequency.exponentialRampToValueAtTime(38, t + 0.28);
+  g.gain.setValueAtTime(0.42, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.32);
+  o.start(t); o.stop(t + 0.34);
+  // Mid crackle on the impact
+  if (_noiseBuf) {
+    const src = aCtx.createBufferSource(); src.buffer = _noiseBuf;
+    const fl = aCtx.createBiquadFilter(); fl.type='bandpass'; fl.frequency.value=2400; fl.Q.value=0.7;
+    const ng = aCtx.createGain();
+    src.connect(fl); fl.connect(ng); ng.connect(sfxGain || aCtx.destination);
+    ng.gain.setValueAtTime(0.35, t);
+    ng.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+    src.start(t, Math.random()*0.3, 0.26);
+  }
+  // Bright tail — cyan zap
+  const o2 = aCtx.createOscillator(), g2 = aCtx.createGain();
+  o2.connect(g2); g2.connect(sfxGain || aCtx.destination);
+  o2.type = 'sawtooth';
+  o2.frequency.setValueAtTime(900, t);
+  o2.frequency.exponentialRampToValueAtTime(200, t + 0.18);
+  g2.gain.setValueAtTime(0.18, t);
+  g2.gain.exponentialRampToValueAtTime(0.001, t + 0.20);
+  o2.start(t); o2.stop(t + 0.22);
 }
 
 function sfxDeath() {
@@ -5993,6 +6189,75 @@ function render() {
     ctx.lineWidth = 9 * a;
     ctx.beginPath(); ctx.arc(er.x, er.y, er.r * 0.88, 0, Math.PI*2); ctx.stroke();
     ctx.restore();
+  }
+
+  // Orbital Cannon — strike telegraphs (aim phase) + impact flashes (impact phase)
+  for (const s of strikes) {
+    if (s.state === 'aim') {
+      const phase = 1 - (s.t / 0.32);          // 0 → 1 over aim
+      const a = Math.min(1, phase * 1.8);
+      ctx.save();
+      // Crosshair reticle
+      ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 14;
+      ctx.strokeStyle = `rgba(0,255,255,${a * 0.9})`;
+      ctx.lineWidth = 2;
+      const ringR = s.r * (0.35 + 0.65 * (1 - phase)); // contracts inward
+      ctx.beginPath(); ctx.arc(s.x, s.y, ringR, 0, Math.PI*2); ctx.stroke();
+      // Inner magenta pulse
+      ctx.strokeStyle = `rgba(255,0,128,${a * 0.55})`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(s.x, s.y, s.r * 0.32, 0, Math.PI*2); ctx.stroke();
+      // Crosshair lines
+      ctx.strokeStyle = `rgba(0,255,255,${a})`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(s.x - s.r*0.48, s.y); ctx.lineTo(s.x + s.r*0.48, s.y);
+      ctx.moveTo(s.x, s.y - s.r*0.48); ctx.lineTo(s.x, s.y + s.r*0.48);
+      ctx.stroke();
+      // Vertical beam streak — appears in the last 0.10s before impact
+      if (s.t < 0.10) {
+        const beamA = (0.10 - s.t) / 0.10;
+        ctx.shadowBlur = 22;
+        ctx.strokeStyle = `rgba(170,255,255,${beamA * 0.75})`;
+        ctx.lineWidth = 5 * beamA;
+        ctx.beginPath();
+        ctx.moveTo(s.x, s.y - 600); ctx.lineTo(s.x, s.y);
+        ctx.stroke();
+        // Bright inner streak
+        ctx.strokeStyle = `rgba(255,255,255,${beamA})`;
+        ctx.lineWidth = 1.5 * beamA;
+        ctx.beginPath();
+        ctx.moveTo(s.x, s.y - 600); ctx.lineTo(s.x, s.y);
+        ctx.stroke();
+      }
+      ctx.restore();
+    } else { // impact
+      const phase = 1 - (s.t / 0.45);
+      const a = 1 - phase;
+      ctx.save();
+      // Expanding outer shockwave
+      ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 26;
+      ctx.strokeStyle = `rgba(0,255,255,${a * 0.85})`;
+      ctx.lineWidth = 4 * a;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r * (0.5 + 1.5 * phase), 0, Math.PI*2);
+      ctx.stroke();
+      // Inner bright ring
+      ctx.strokeStyle = `rgba(255,255,255,${a * 0.7})`;
+      ctx.lineWidth = 2.5 * a;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r * (0.3 + 1.05 * phase), 0, Math.PI*2);
+      ctx.stroke();
+      // Core flash — lingers only briefly
+      if (phase < 0.30) {
+        const coreA = 1 - phase / 0.30;
+        ctx.fillStyle = `rgba(255,255,255,${coreA})`;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r * 0.32 * coreA, 0, Math.PI*2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
   }
 
   // Obstacles — themed neon hex pillars (drawn before entities so enemies/player appear in front)

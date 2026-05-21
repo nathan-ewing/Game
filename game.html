@@ -1819,9 +1819,9 @@ const CHAMPIONS = [
   {
     id:'reaper', name:'REAPER',
     tag:'AURA · WEAK SHOT',
-    desc:'Foes wither in your shadow. Your blaster is a whisper compared to your wrath.',
+    desc:'Foes wither in your shadow. Your sidearm is a whisper compared to your wrath.',
     stats:{ hp:90, mhp:90, spd:205, sDmg:11, sInt:1.05, sPierce:1, auraDmg:20, auraR:140, mag:130, rerolls:2 },
-    weapon:'blaster', weaponScale:0.95,
+    weapon:'pistol', weaponScale:1.0,
     palette:{ TRIM:'#b400ff', ACCENT:'#ff2a6d', ARMOR_LIGHT:'#3b2848', ARMOR_MID:'#22162a', ARMOR_DARK:'#0a0014', EYE:'#ff2a6d' },
     // Reaper relies on aura — Penetrator is still removed from her pool.
     // More Power!!! is available but capped at 5 so it can't fully overshadow her aura kit.
@@ -3389,6 +3389,73 @@ function drawChampionPreview(g, ch, cx, cy, scale) {
     g.fillRect(-r*0.12, r*0.08, r*0.24, r*0.05);
     g.strokeStyle = '#000'; g.lineWidth = 0.8;
     g.strokeRect(-r*0.12, r*0.08, r*0.24, r*0.05);
+  } else if (weapon === 'pistol') {
+    // PISTOL — compact one-handed sidearm. Used by champions with a weaker shot
+    // (Reaper) to make the lower damage read visually as soon as they're picked.
+    // Muzzle ring (smaller than the blaster's)
+    g.shadowColor = TRIM; g.shadowBlur = 8;
+    g.fillStyle = ARMOR_LIGHT;
+    g.beginPath();
+    g.ellipse(0, -r*0.76, r*0.13, r*0.07, 0, 0, Math.PI*2);
+    g.fill();
+    g.strokeStyle = '#000'; g.lineWidth = 1; g.stroke();
+    g.fillStyle = '#000';
+    g.beginPath();
+    g.ellipse(0, -r*0.76, r*0.07, r*0.03, 0, 0, Math.PI*2);
+    g.fill();
+    g.shadowBlur = 0;
+    // Short barrel / slide (narrower + shorter than the blaster's chunky barrel)
+    g.fillStyle = ARMOR_MID;
+    g.fillRect(-r*0.11, -r*0.74, r*0.22, r*0.40);
+    g.strokeStyle = '#000'; g.lineWidth = 1;
+    g.strokeRect(-r*0.11, -r*0.74, r*0.22, r*0.40);
+    // Rear slide serrations
+    g.fillStyle = '#000';
+    for (let i = 0; i < 3; i++) {
+      g.fillRect(-r*0.085 + i*r*0.06, -r*0.50, r*0.012, r*0.13);
+    }
+    // Side cyan stripe
+    g.shadowColor = TRIM; g.shadowBlur = 6;
+    g.fillStyle = TRIM;
+    g.fillRect(-r*0.118, -r*0.55, r*0.020, r*0.20);
+    g.shadowBlur = 0;
+    // Compact receiver / frame
+    g.fillStyle = ARMOR_LIGHT;
+    g.beginPath();
+    g.moveTo(-r*0.13, -r*0.34);
+    g.lineTo( r*0.13, -r*0.34);
+    g.lineTo( r*0.15, -r*0.08);
+    g.lineTo(-r*0.10, -r*0.08);
+    g.closePath(); g.fill();
+    g.strokeStyle = '#000'; g.lineWidth = 1; g.stroke();
+    // Small power-core dot (no wide slit like the blaster)
+    g.shadowColor = ACCENT; g.shadowBlur = 6;
+    g.fillStyle = ACCENT;
+    g.beginPath(); g.arc(0, -r*0.20, r*0.045, 0, Math.PI*2); g.fill();
+    g.shadowBlur = 0;
+    // Trigger guard
+    g.fillStyle = ARMOR_MID;
+    g.beginPath();
+    g.arc(0, r*0.02, r*0.07, 0, Math.PI);
+    g.fill();
+    g.strokeStyle = '#000'; g.lineWidth = 0.7; g.stroke();
+    // Single-hand grip — shorter and less angled than the blaster's two-handed grip
+    g.fillStyle = '#1c1428';
+    g.beginPath();
+    g.moveTo(-r*0.08, r*0.02);
+    g.lineTo( r*0.08, r*0.02);
+    g.lineTo( r*0.12, r*0.30);
+    g.lineTo(-r*0.04, r*0.30);
+    g.closePath(); g.fill();
+    g.strokeStyle = '#000'; g.lineWidth = 0.7; g.stroke();
+    // Grip checkering
+    g.strokeStyle = 'rgba(255,255,255,0.20)'; g.lineWidth = 0.6;
+    for (let i = 0; i < 3; i++) {
+      const gy = r*0.08 + i * r*0.07;
+      g.beginPath();
+      g.moveTo(-r*0.03, gy); g.lineTo(r*0.10, gy);
+      g.stroke();
+    }
   } else if (weapon === 'scythe') {
     // Vertical pole with curved blade
     g.fillStyle = '#1a0e1e';
@@ -6557,6 +6624,95 @@ function drawNeonKnight(x, y, facing, walkPhase, moving, r, blink) {
       ctx.beginPath();
       ctx.arc(r*0.3, -r*1.00, r*0.85, -Math.PI*0.95, -Math.PI*0.20);
       ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
+  } else if (_weapon === 'pistol') {
+    // PISTOL — compact one-handed sidearm (Reaper). Shorter barrel + smaller
+    // receiver + shorter grip than the standard blaster.
+    // Grip (shorter, less flared)
+    ctx.fillStyle = '#1c1428';
+    ctx.beginPath();
+    ctx.moveTo(-r*0.08, r*0.02);
+    ctx.lineTo( r*0.08, r*0.02);
+    ctx.lineTo( r*0.11, r*0.26);
+    ctx.lineTo(-r*0.04, r*0.26);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 0.8;
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 0.6;
+    for (let i = 0; i < 3; i++) {
+      const gy = r*0.06 + i * r*0.06;
+      ctx.beginPath();
+      ctx.moveTo(-r*0.04, gy); ctx.lineTo(r*0.08, gy);
+      ctx.stroke();
+    }
+    // Trigger guard (small loop)
+    ctx.fillStyle = ARMOR_MID;
+    ctx.beginPath();
+    ctx.moveTo(-r*0.08, r*0.00);
+    ctx.quadraticCurveTo(-r*0.05, r*0.08, r*0.01, r*0.08);
+    ctx.lineTo(r*0.01, r*0.03);
+    ctx.lineTo(-r*0.03, r*0.03);
+    ctx.lineTo(-r*0.08, r*0.00);
+    ctx.fill();
+    // Compact receiver
+    const pBody = ctx.createLinearGradient(-r*0.13, -r*0.18, r*0.13, r*0.04);
+    pBody.addColorStop(0, ARMOR_LIGHT);
+    pBody.addColorStop(0.5, ARMOR_MID);
+    pBody.addColorStop(1, ARMOR_DARK);
+    ctx.fillStyle = pBody;
+    ctx.beginPath();
+    ctx.moveTo(-r*0.13, r*0.02);
+    ctx.lineTo( r*0.13, r*0.02);
+    ctx.lineTo( r*0.15, -r*0.16);
+    ctx.lineTo(-r*0.15, -r*0.16);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 1;
+    ctx.stroke();
+    // Single power-core dot (smaller than blaster's wide slit)
+    ctx.shadowColor = ACCENT; ctx.shadowBlur = 8;
+    ctx.fillStyle = ACCENT;
+    ctx.beginPath(); ctx.arc(0, -r*0.08, r*0.045, 0, Math.PI*2); ctx.fill();
+    ctx.shadowBlur = 0;
+    // Short barrel / slide
+    ctx.fillStyle = ARMOR_MID;
+    ctx.fillRect(-r*0.07, -r*0.55, r*0.14, r*0.40);
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 1;
+    ctx.strokeRect(-r*0.07, -r*0.55, r*0.14, r*0.40);
+    // Slide serrations (rear half)
+    ctx.fillStyle = '#000';
+    for (let i = 0; i < 3; i++) {
+      ctx.fillRect(-r*0.05 + i*r*0.04, -r*0.32, r*0.010, r*0.10);
+    }
+    // Side cyan stripe
+    ctx.shadowColor = TRIM; ctx.shadowBlur = 6;
+    ctx.fillStyle = TRIM;
+    ctx.fillRect(-r*0.075, -r*0.48, r*0.018, r*0.28);
+    ctx.shadowBlur = 0;
+    // Muzzle (smaller than blaster's)
+    ctx.fillStyle = ARMOR_LIGHT;
+    ctx.beginPath();
+    ctx.ellipse(0, -r*0.55, r*0.09, r*0.05, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.ellipse(0, -r*0.55, r*0.045, r*0.025, 0, 0, Math.PI*2);
+    ctx.fill();
+    // Muzzle flash on shot — smaller pop than the blaster's
+    if (P.sT < 0.07 && P.sT >= 0) {
+      const flashT = 1 - (P.sT / 0.07);
+      ctx.shadowColor = TRIM; ctx.shadowBlur = 14;
+      const _trgb = _hexRGB(TRIM);
+      const mg = ctx.createRadialGradient(0, -r*0.62, 0, 0, -r*0.62, r*0.20);
+      mg.addColorStop(0, `rgba(255,255,255,${0.95*flashT})`);
+      mg.addColorStop(0.45, `rgba(${_trgb},${0.55*flashT})`);
+      mg.addColorStop(1, `rgba(${_trgb},0)`);
+      ctx.fillStyle = mg;
+      ctx.beginPath(); ctx.arc(0, -r*0.62, r*0.20, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = `rgba(${_hexRGB(ACCENT)},${0.8*flashT})`;
+      ctx.beginPath(); ctx.arc(0, -r*0.58, r*0.055, 0, Math.PI*2); ctx.fill();
       ctx.shadowBlur = 0;
     }
   } else {

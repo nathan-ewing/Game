@@ -1132,7 +1132,7 @@ const MAX_ICE_CUBES = 1;
 const MAX_GHOSTS = 1;
 const MAX_MINIGUNS = 1;
 const MAX_EMPS = 1;
-const EMP_DROP_CHANCE = 0.006;   // rarest drop — lowest of all powerups
+const EMP_DROP_CHANCE = 0.0015;  // rarest drop by a wide margin — ~1 in 670 kills
 const EMP_RADIUS = 455;          // kill radius when activated (was 260; +75%)
 const ICE_DROP_CHANCE = 0.018;
 const GHOST_DROP_CHANCE = 0.018;
@@ -4447,11 +4447,13 @@ function update(dt) {
     }
     if(d < P.r + em.r + 4){
       emps.splice(i,1);
-      // Collect indices of non-boss enemies inside the kill radius
+      // Collect indices of every non-boss enemy inside the kill radius.
+      // Mini-bosses (isBoss && isMiniBoss) ARE killed — only the real tiered
+      // bosses (isBoss && !isMiniBoss) survive the EMP.
       const toKill = [];
       for(let j=enemies.length-1;j>=0;j--){
         const en=enemies[j];
-        if(en.isBoss) continue;
+        if(en.isBoss && !en.isMiniBoss) continue;
         if(dist(en,P) <= EMP_RADIUS) toKill.push(j);
       }
       for(const j of toKill){

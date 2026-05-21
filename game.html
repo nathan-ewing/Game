@@ -385,6 +385,38 @@ h2 { font-size:28px; margin-bottom:6px; color:#ff0080;
   border-left:2px solid #ffd84a;
 }
 .champion-passive .ps-label { color:#fff; font-weight:bold; letter-spacing:2px; margin-right:6px; }
+
+/* Floating passive info panel shown alongside the pause menu */
+#passive-info-panel {
+  position:fixed;
+  left:24px;
+  top:50%;
+  transform:translateY(-50%);
+  width:260px;
+  padding:16px 18px 18px;
+  background:rgba(8,0,18,0.92);
+  border:1.5px solid rgba(255,216,74,0.55);
+  box-shadow:0 0 28px rgba(255,216,74,0.25), inset 0 0 18px rgba(255,216,74,0.06);
+  color:#bda5d0;
+  font-family:'Courier New', monospace;
+  z-index:120;
+}
+#passive-info-panel .pip-label {
+  color:#fff; font-size:10px; letter-spacing:3px;
+  margin-bottom:4px;
+}
+#passive-info-panel .pip-name {
+  color:#ffd84a; font-size:18px; font-weight:bold; letter-spacing:2px;
+  margin-bottom:10px;
+  text-shadow:0 0 10px rgba(255,216,74,0.55);
+}
+#passive-info-panel .pip-champ {
+  color:#ff66c4; font-size:9px; letter-spacing:3px;
+  margin-bottom:12px;
+}
+#passive-info-panel .pip-desc {
+  font-size:12px; line-height:1.55;
+}
 .champion-stats { font-size:10px; color:#88a6c0; line-height:1.6; letter-spacing:1px; }
 .champion-stats b { color:#ffea00; font-weight:bold; }
 
@@ -794,6 +826,13 @@ h1 { animation:titleGlow 3.5s ease-in-out infinite; }
   <div style="margin-top:18px">
     <button class="btn-ghost" onclick="closeHighScores()">BACK TO MENU</button>
   </div>
+</div>
+
+<div id="passive-info-panel" style="display:none">
+  <div class="pip-label">✦ PASSIVE</div>
+  <div class="pip-name" id="pip-name"></div>
+  <div class="pip-champ" id="pip-champ"></div>
+  <div class="pip-desc" id="pip-desc"></div>
 </div>
 
 <div id="pause-panel" class="panel" style="display:none">
@@ -2047,6 +2086,7 @@ const CHAMPIONS = [
     tag:'BALANCED',
     desc:'A steady hand and a steady blaster. No surprises, no weaknesses.',
     passive:'Regular Dude.',
+    passiveDesc:"I'm just a regular dude.",
     stats:{ hp:100, mhp:100, spd:210, sDmg:22, sInt:0.90, sPierce:1, auraDmg:0, mag:115, rerolls:3 },
     weapon:'blaster', weaponScale:1.0,
     palette:{ TRIM:'#00ffff', ACCENT:'#ff0080', ARMOR_LIGHT:'#6a6a82', ARMOR_MID:'#3a3a52', ARMOR_DARK:'#16162a', EYE:'#00ffff' },
@@ -2055,7 +2095,8 @@ const CHAMPIONS = [
     id:'reaper', name:'REAPER',
     tag:'AURA · WEAK SHOT',
     desc:'Foes wither in your shadow. Your sidearm is a whisper compared to your wrath.',
-    passive:'Starts with a 20 DPS damaging aura — no skill pick required.',
+    passive:'Aura',
+    passiveDesc:'Starts with a 20 DPS damaging aura — no skill pick required. Aura Power and Aura Reach unlock immediately.',
     stats:{ hp:90, mhp:90, spd:205, sDmg:11, sInt:1.05, sPierce:1, auraDmg:20, auraR:140, mag:130, rerolls:2 },
     weapon:'pistol', weaponScale:1.0,
     palette:{ TRIM:'#b400ff', ACCENT:'#ff2a6d', ARMOR_LIGHT:'#3b2848', ARMOR_MID:'#22162a', ARMOR_DARK:'#0a0014', EYE:'#ff2a6d' },
@@ -2067,7 +2108,8 @@ const CHAMPIONS = [
     id:'lancer', name:'LANCER',
     tag:'PIERCING · HEAVY',
     desc:'One slow, devastating shot. Pierces deeper every 10 levels.',
-    passive:'+1 Shot Pierce every 10 levels — capped at +5 (lv 10 / 20 / 30 / 40 / 50).',
+    passive:'Piercing Shot',
+    passiveDesc:'+1 Shot Pierce every 10 levels, capped at +5 (lv 10 / 20 / 30 / 40 / 50). Replaces the Penetrator skill — frees up your skill slots for damage and survivability.',
     stats:{ hp:110, mhp:110, spd:195, sDmg:40, sInt:1.50, sPierce:3, auraDmg:0, mag:115, rerolls:2 },
     weapon:'blaster', weaponScale:1.45,
     palette:{ TRIM:'#ff7a00', ACCENT:'#ffd84a', ARMOR_LIGHT:'#7a6a4a', ARMOR_MID:'#3a3020', ARMOR_DARK:'#1a1008', EYE:'#ff7a00' },
@@ -2082,7 +2124,8 @@ const CHAMPIONS = [
     id:'swordmaster', name:'SWORD MASTER',
     tag:'PLASMA BLADE · NIMBLE',
     desc:'A neon plasma blade and lightning reflexes. Starts melee only — every swing cleaves the air around you.',
-    passive:'Flowing Combat — +25% movement speed while a combo is active.',
+    passive:'Flowing Combat',
+    passiveDesc:'+25% movement speed while a combo is active (combo stays alive ~1.2s after each kill). Rewards aggressive play — at peak with maxed Sprint she crosses the screen in a blur.',
     stats:{ hp:90, mhp:90, spd:260, sDmg:24, sInt:0.85, sPierce:1, auraDmg:0, mag:120, rerolls:2, isMelee:true, meleeR:74 },
     weapon:'sword', weaponScale:1.0,
     saberColor:'#00ff66',  // neon-green plasma blade — also colors every sword attack effect
@@ -4277,6 +4320,20 @@ function closeHighScores() {
 }
 
 // ── Pause flow ──────────────────────────────────────────────────────────────
+function showPassiveInfoPanel() {
+  if (!selectedChampion) return;
+  const pip = document.getElementById('passive-info-panel');
+  if (!pip) return;
+  document.getElementById('pip-name').textContent  = selectedChampion.passive || '—';
+  document.getElementById('pip-champ').textContent = selectedChampion.name || '';
+  document.getElementById('pip-desc').textContent  = selectedChampion.passiveDesc || '';
+  pip.style.display = 'block';
+}
+function hidePassiveInfoPanel() {
+  const pip = document.getElementById('passive-info-panel');
+  if (pip) pip.style.display = 'none';
+}
+
 function pauseGame() {
   if (mode !== 'play') return;
   mode = 'paused';
@@ -4285,12 +4342,14 @@ function pauseGame() {
   if (aCtx && aCtx.state === 'running') aCtx.suspend();
   animatePanel(document.getElementById('pause-panel'));
   showEquippedPanel();
+  showPassiveInfoPanel();
 }
 
 function resumeGame() {
   document.getElementById('pause-panel').style.display = 'none';
   document.getElementById('hs-panel').style.display = 'none';
   hideEquippedPanel();
+  hidePassiveInfoPanel();
   if (aCtx && aCtx.state === 'suspended') aCtx.resume();
   if (musicRunning && aCtx) {
     nextBarTime = aCtx.currentTime + 0.12;
@@ -4309,6 +4368,7 @@ function returnToMenu() {
   const cp = document.getElementById('champion-panel');
   if (cp) cp.style.display = 'none';
   hideEquippedPanel();
+  hidePassiveInfoPanel();
   renderLifetimeStats();
   // Clear status effects + abandon current run
   freezeT = 0; fleeT = 0;

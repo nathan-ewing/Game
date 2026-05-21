@@ -7408,6 +7408,27 @@ function drawNeonKnight(x, y, facing, walkPhase, moving, r, blink) {
   ctx.translate(x, y);
   // Natural sprite "front" is up (-Y); rotate so the helmet visor points along `facing`.
   ctx.rotate(facing + Math.PI/2);
+
+  // ── PLASMA SHIELD halo — drawn behind the sprite (always visible, even
+  //    through invuln blink, since it represents active protection). ──
+  if (P && P.shield > 0) {
+    const stacks = P.shield;
+    const pulse  = 0.5 + 0.5 * Math.sin(gt * 3.2);
+    ctx.save();
+    // Outer soft white halo (intensity scales with stack count)
+    ctx.shadowColor = '#ffffff';
+    ctx.shadowBlur  = 14 + stacks * 4;
+    ctx.strokeStyle = `rgba(255,255,255,${0.18 + 0.06 * stacks + 0.05 * pulse})`;
+    ctx.lineWidth   = 2 + stacks * 0.5;
+    ctx.beginPath(); ctx.arc(0, 0, r + 6 + stacks * 1.5, 0, Math.PI * 2); ctx.stroke();
+    // Inner cyan accent (no blur — cheap second layer)
+    ctx.shadowBlur  = 0;
+    ctx.strokeStyle = `rgba(140,230,255,${0.20 + 0.05 * stacks})`;
+    ctx.lineWidth   = 1;
+    ctx.beginPath(); ctx.arc(0, 0, r + 3 + stacks * 1.5, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  }
+
   if (blink) ctx.globalAlpha = 0.35;
 
   // Per-champion palette pulled from selectedChampion (falls back to Crusader's)
@@ -8018,6 +8039,52 @@ function drawNeonKnight(x, y, facing, walkPhase, moving, r, blink) {
   ctx.fill();
   ctx.shadowBlur = 0;
 
+  // ── ORBITAL CANNON CONTROLLER — small grey gem floating over the right
+  //    shoulder when Orbital Cannon is unlocked. Signifies the strike
+  //    targeting transponder. Bobs gently to feel "powered". ──
+  if (P && P.strikeDmg > 0) {
+    const bob = Math.sin(gt * 2.8) * 1.4;
+    const gx  = r * 0.55;
+    const gy  = -r * 0.10 + bob;
+    const gw  = r * 0.11;
+    const gh  = r * 0.16;
+    ctx.save();
+    // Subtle cyan halo so it reads at small scales
+    ctx.shadowColor = '#aaccff'; ctx.shadowBlur = 7;
+    // Gem body (steel-grey diamond)
+    ctx.fillStyle = '#9bb3c7';
+    ctx.beginPath();
+    ctx.moveTo(gx,       gy - gh);
+    ctx.lineTo(gx + gw,  gy);
+    ctx.lineTo(gx,       gy + gh);
+    ctx.lineTo(gx - gw,  gy);
+    ctx.closePath();
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    // Top facet highlight
+    ctx.fillStyle = '#dde8f0';
+    ctx.beginPath();
+    ctx.moveTo(gx,                gy - gh);
+    ctx.lineTo(gx + gw * 0.40,    gy - gh * 0.25);
+    ctx.lineTo(gx - gw * 0.40,    gy - gh * 0.25);
+    ctx.closePath();
+    ctx.fill();
+    // Bottom facet shadow (gives volumetric read)
+    ctx.fillStyle = 'rgba(0,0,0,0.32)';
+    ctx.beginPath();
+    ctx.moveTo(gx,                gy + gh);
+    ctx.lineTo(gx + gw * 0.50,    gy + gh * 0.30);
+    ctx.lineTo(gx - gw * 0.50,    gy + gh * 0.30);
+    ctx.closePath();
+    ctx.fill();
+    // Tiny cyan pulse dot at the centre — "transponder on"
+    ctx.fillStyle = '#bff0ff';
+    ctx.beginPath();
+    ctx.arc(gx, gy, 1.1, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
   ctx.restore();
 }
 
@@ -8161,7 +8228,7 @@ function drawHUD(CW,CH) {
   }
 
   // Weapon readout (bottom-left) — taller panel with proper line spacing
-  const hasExtra = !!(P.orbs || P.auraDmg);
+  const hasExtra = !!(P.orbs || P.auraDmg || P.shield || P.strikeDmg);
   const panelH = hasExtra ? 86 : 70;       // grow vertically if there's an extra row
   const wy = CH - panelH - 14;             // sit 14px above the canvas bottom
   ctx.save();
@@ -8178,8 +8245,10 @@ function drawHUD(CW,CH) {
   ctx.fillText(`◆ Shot  dmg ${P.sDmg}  pierce ${P.sPierce}`, 22, wy+33);
   ctx.shadowBlur = 0;
   let extra = '';
-  if(P.orbs)    extra += `  ◉ ${P.orbs} Orb${P.orbs>1?'s':''}`;
-  if(P.auraDmg) extra += `  ✺ Aura ${P.auraDmg}`;
+  if(P.orbs)      extra += `  ◉ ${P.orbs} Orb${P.orbs>1?'s':''}`;
+  if(P.auraDmg)   extra += `  ✺ Aura ${P.auraDmg}`;
+  if(P.strikeDmg) extra += `  ▼ Strike ${P.strikeDmg}`;
+  if(P.shield)    extra += `  ⬡ Shield -${(P.shield * 8)}%`;
   if (extra) {
     ctx.fillStyle = '#ff0080';
     ctx.shadowColor = '#ff0080'; ctx.shadowBlur = 6;
@@ -8846,8 +8915,15 @@ window.dev = {
     });
   },
 };
-console.log('%c[dev] type dev.help() for playtest commands',
-  'color:#00ffff;background:#000;padding:3px 8px;border:1px solid #00ffff');
+// Banner suppressed in normal play — set localStorage.crusade_dev_mode = '1'
+// (or call window.dev.enable()) to bring it back. The dev.* functions
+// themselves remain available either way.
+window.dev.enable  = () => { localStorage.setItem('crusade_dev_mode', '1'); console.log('[dev] banner enabled'); };
+window.dev.disable = () => { localStorage.removeItem('crusade_dev_mode');    console.log('[dev] banner disabled'); };
+if (localStorage.getItem('crusade_dev_mode') === '1') {
+  console.log('%c[dev] type dev.help() for playtest commands',
+    'color:#00ffff;background:#000;padding:3px 8px;border:1px solid #00ffff');
+}
 
 // ── Initial-box auto-advance ──────────────────────────────────────────────────
 const IDS = ['i0','i1','i2'];

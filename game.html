@@ -2081,6 +2081,7 @@ const CHAMPIONS = [
     id:'swordmaster', name:'SWORD MASTER',
     tag:'PLASMA BLADE · NIMBLE',
     desc:'A neon plasma blade and lightning reflexes. Starts melee only — every swing cleaves the air around you.',
+    passive:'Flowing Combat — +25% movement speed while a combo is active.',
     stats:{ hp:90, mhp:90, spd:260, sDmg:24, sInt:0.85, sPierce:1, auraDmg:0, mag:120, rerolls:2, isMelee:true, meleeR:74 },
     weapon:'sword', weaponScale:1.0,
     saberColor:'#00ff66',  // neon-green plasma blade — also colors every sword attack effect
@@ -4408,8 +4409,11 @@ function update(dt) {
   if(dx||dy){
     const l=Math.hypot(dx,dy);
     const prevX = P.x, prevY = P.y;
-    const nx = P.x + (dx/l)*P.spd*dt;
-    const ny = P.y + (dy/l)*P.spd*dt;
+    // Sword Master passive: Flowing Combat — +25% speed while a combo is active
+    // (i.e. while the combo timer hasn't expired since the last kill).
+    const flowingBoost = (selectedChampion && selectedChampion.id === 'swordmaster' && comboTimer > 0) ? 1.25 : 1;
+    const nx = P.x + (dx/l)*P.spd*flowingBoost*dt;
+    const ny = P.y + (dy/l)*P.spd*flowingBoost*dt;
     const r = resolveObstacleCollision(prevX, prevY, nx, ny, P.r);
     P.x = Math.max(P.r, Math.min(WW-P.r, r.x));
     P.y = Math.max(P.r, Math.min(WH-P.r, r.y));

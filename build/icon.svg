@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <!-- Synthwave background -->
+    <radialGradient id="bg" cx="50%" cy="68%" r="78%">
+      <stop offset="0%"  stop-color="#3a0040"/>
+      <stop offset="45%" stop-color="#1a0028"/>
+      <stop offset="100%" stop-color="#000000"/>
+    </radialGradient>
+
+    <!-- Big crusader-cross banner behind helmet -->
+    <linearGradient id="crossFill" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"   stop-color="#ff99dd"/>
+      <stop offset="35%"  stop-color="#ff0080"/>
+      <stop offset="100%" stop-color="#80003a"/>
+    </linearGradient>
+
+    <!-- Helmet body: chrome with cool synthwave tint -->
+    <linearGradient id="helmBody" x1="20%" y1="0%" x2="80%" y2="100%">
+      <stop offset="0%"   stop-color="#f4eaf4"/>
+      <stop offset="22%"  stop-color="#cbb8d4"/>
+      <stop offset="55%"  stop-color="#7a6680"/>
+      <stop offset="85%"  stop-color="#2a1a30"/>
+      <stop offset="100%" stop-color="#0a0010"/>
+    </linearGradient>
+
+    <!-- Pink rim light running down the right edge of the helmet -->
+    <linearGradient id="rimPink" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#ff0080" stop-opacity="0"/>
+      <stop offset="70%"  stop-color="#ff0080" stop-opacity="0"/>
+      <stop offset="92%"  stop-color="#ff66c4" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#ffaadd" stop-opacity="1"/>
+    </linearGradient>
+
+    <!-- Cyan rim light running down the left edge -->
+    <linearGradient id="rimCyan" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#aaffff" stop-opacity="1"/>
+      <stop offset="8%"   stop-color="#00ffff" stop-opacity="0.95"/>
+      <stop offset="30%"  stop-color="#00ffff" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#00ffff" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Top dome sheen -->
+    <radialGradient id="domeSheen" cx="42%" cy="20%" r="40%">
+      <stop offset="0%"   stop-color="#ffffff" stop-opacity="0.85"/>
+      <stop offset="60%"  stop-color="#ffffff" stop-opacity="0.10"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Outer pink glow filter -->
+    <filter id="pinkGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="26" result="b"/>
+      <feFlood flood-color="#ff0080" flood-opacity="0.9" result="c"/>
+      <feComposite in="c" in2="b" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Soft horizon glow filter -->
+    <filter id="horizonGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="22"/>
+    </filter>
+
+    <!-- Helmet shadow drop -->
+    <filter id="helmShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="14"/>
+      <feOffset dx="0" dy="14" result="off"/>
+      <feFlood flood-color="#000000" flood-opacity="0.6"/>
+      <feComposite in2="off" operator="in"/>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- The crusader cross path (used behind the helmet) -->
+    <path id="cross" d="
+      M 432,120
+      L 592,120
+      L 592,400
+      L 872,400
+      L 872,560
+      L 592,560
+      L 592,840
+      L 432,840
+      L 432,560
+      L 152,560
+      L 152,400
+      L 432,400
+      Z"/>
+
+    <!-- Great-helm silhouette: tapered barrel with rounded dome top -->
+    <path id="helm" d="
+      M 340,260
+      C 340,210 380,182 442,182
+      L 582,182
+      C 644,182 684,210 684,260
+      L 702,460
+      C 706,540 696,610 668,660
+      C 632,720 574,742 512,742
+      C 450,742 392,720 356,660
+      C 328,610 318,540 322,460
+      L 340,260
+      Z"/>
+  </defs>
+
+  <!-- Background -->
+  <rect x="0" y="0" width="1024" height="1024" rx="200" ry="200" fill="url(#bg)"/>
+
+  <!-- Synthwave perspective grid -->
+  <g stroke="rgba(255,0,128,0.18)" stroke-width="1.5" fill="none">
+    <line x1="0"   y1="900" x2="1024" y2="900"/>
+    <line x1="60"  y1="830" x2="964"  y2="830"/>
+    <line x1="140" y1="770" x2="884"  y2="770"/>
+    <line x1="210" y1="720" x2="814"  y2="720"/>
+    <line x1="270" y1="680" x2="754"  y2="680"/>
+  </g>
+  <g stroke="rgba(255,0,128,0.14)" stroke-width="1.2" fill="none">
+    <line x1="512" y1="630" x2="0"    y2="1024"/>
+    <line x1="512" y1="630" x2="180"  y2="1024"/>
+    <line x1="512" y1="630" x2="340"  y2="1024"/>
+    <line x1="512" y1="630" x2="684"  y2="1024"/>
+    <line x1="512" y1="630" x2="844"  y2="1024"/>
+    <line x1="512" y1="630" x2="1024" y2="1024"/>
+  </g>
+
+  <!-- Horizon glow line -->
+  <ellipse cx="512" cy="630" rx="440" ry="6" fill="#ff0080" opacity="0.85" filter="url(#horizonGlow)"/>
+  <ellipse cx="512" cy="630" rx="320" ry="3" fill="#ffaaff" opacity="0.9"/>
+
+  <!-- Crusader cross behind helmet — glows pink, partly visible -->
+  <g filter="url(#pinkGlow)">
+    <use href="#cross" fill="url(#crossFill)" opacity="0.92"/>
+  </g>
+  <use href="#cross" fill="url(#crossFill)" opacity="0.78"/>
+  <use href="#cross" fill="none" stroke="#ffcce6" stroke-width="5" stroke-linejoin="round" opacity="0.7"/>
+
+  <!-- ╭─ HELMET ─╮ -->
+  <g filter="url(#helmShadow)">
+    <!-- Body fill -->
+    <use href="#helm" fill="url(#helmBody)"/>
+    <!-- Pink rim light on the right edge -->
+    <use href="#helm" fill="url(#rimPink)" opacity="0.95"/>
+    <!-- Cyan rim light on the left edge -->
+    <use href="#helm" fill="url(#rimCyan)" opacity="0.85"/>
+    <!-- Top dome sheen -->
+    <use href="#helm" fill="url(#domeSheen)"/>
+
+    <!-- Brow band: subtle horizontal ridge across the helmet, around the eye line -->
+    <rect x="328" y="354" width="376" height="14" fill="#2a1a35" opacity="0.55"/>
+    <rect x="328" y="354" width="376" height="3"  fill="#ffaadd" opacity="0.35"/>
+
+    <!-- Cross-shaped visor — dark slot, slight cyan inner glow -->
+    <!-- Horizontal eye slit -->
+    <rect x="370" y="378" width="284" height="42" rx="6" fill="#040008"/>
+    <!-- Vertical breathing slot -->
+    <rect x="490" y="378" width="44"  height="222" rx="6" fill="#040008"/>
+    <!-- Cyan inner glow on the slits -->
+    <rect x="376" y="384" width="272" height="30" rx="4" fill="#001a26"/>
+    <rect x="494" y="384" width="36"  height="212" rx="4" fill="#001a26"/>
+    <rect x="380" y="394" width="264" height="6"  rx="3" fill="#00ffff" opacity="0.55"/>
+    <rect x="498" y="430" width="28"  height="170" rx="3" fill="#00ffff" opacity="0.45"/>
+
+    <!-- Rivets along the upper band -->
+    <g fill="#1a1020">
+      <circle cx="370" cy="262" r="6"/>
+      <circle cx="430" cy="232" r="6"/>
+      <circle cx="512" cy="222" r="6"/>
+      <circle cx="594" cy="232" r="6"/>
+      <circle cx="654" cy="262" r="6"/>
+    </g>
+    <!-- Rivet highlights -->
+    <g fill="#ff99dd" opacity="0.75">
+      <circle cx="368" cy="260" r="2"/>
+      <circle cx="428" cy="230" r="2"/>
+      <circle cx="510" cy="220" r="2"/>
+      <circle cx="592" cy="230" r="2"/>
+      <circle cx="652" cy="260" r="2"/>
+    </g>
+
+    <!-- Rivets along the cheek-band (just below the brow) -->
+    <g fill="#1a1020">
+      <circle cx="342" cy="430" r="5"/>
+      <circle cx="338" cy="520" r="5"/>
+      <circle cx="350" cy="610" r="5"/>
+      <circle cx="682" cy="430" r="5"/>
+      <circle cx="686" cy="520" r="5"/>
+      <circle cx="674" cy="610" r="5"/>
+    </g>
+
+    <!-- Pink plume / crest on top -->
+    <path d="
+      M 502,182
+      L 522,182
+      L 526,128
+      L 540,82
+      L 526,72
+      L 512,90
+      L 498,72
+      L 484,82
+      L 498,128
+      Z" fill="#ff0080"/>
+    <path d="
+      M 506,182
+      L 518,182
+      L 520,128
+      L 528,86
+      L 522,78
+      L 512,96
+      L 502,78
+      L 496,86
+      L 504,128
+      Z" fill="#ff66c4"/>
+    <!-- Plume highlight -->
+    <path d="M 512,96 L 512,170" stroke="#ffaadd" stroke-width="2" opacity="0.8"/>
+  </g>
+
+  <!-- A few subtle scanlines (kept sparse so they don't muddy small sizes) -->
+  <g fill="rgba(0,0,0,0.16)">
+    <rect x="0" y="120"  width="1024" height="2"/>
+    <rect x="0" y="280"  width="1024" height="2"/>
+    <rect x="0" y="440"  width="1024" height="2"/>
+    <rect x="0" y="600"  width="1024" height="2"/>
+    <rect x="0" y="760"  width="1024" height="2"/>
+    <rect x="0" y="920"  width="1024" height="2"/>
+  </g>
+</svg>

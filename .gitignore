@@ -1,0 +1,26 @@
+# Node / Electron
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# Build output
+dist/
+out/
+*.dmg
+*.exe
+*.AppImage
+*.zip
+
+# Icon intermediate files (regenerable from build/icon.svg via qlmanage + sips + iconutil)
+build/icon.iconset/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo

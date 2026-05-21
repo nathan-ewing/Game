@@ -4814,7 +4814,17 @@ function update(dt) {
     const inVac = vacuumActiveT > 0;
     if((inVac || d<P.mag) && d>0.001){
       const nx=(P.x-g.x)/d, ny=(P.y-g.y)/d;
-      const spd = inVac ? P.spd*2.0 : Math.max(d<55?540:230, P.spd*1.05);
+      // Vacuum speed is distance-aware so every gem has enough closure rate
+      // to actually reach the player within the remaining window, even if
+      // the player is running directly away. Floor at 1500/sec to avoid the
+      // formula bottoming out on close gems.
+      let spd;
+      if (inVac) {
+        const timeLeft = Math.max(0.30, vacuumActiveT); // avoid div-by-tiny at end
+        spd = Math.max(1500, (d / timeLeft) * 1.3 + P.spd * 1.5);
+      } else {
+        spd = Math.max(d<55?540:230, P.spd*1.05);
+      }
       g.x+=nx*spd*dt; g.y+=ny*spd*dt;
     }
     if(d<P.r+g.r+4){

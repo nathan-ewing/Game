@@ -1853,6 +1853,33 @@ function initSkillIcons() {
     g.fillRect(c-3, c-9, 6, 18);
     g.fillRect(c-9, c-3, 18, 6);
   });
+
+  // Restore — fallback heal card icon (green hex with medical cross).
+  // Shown when the level-up pool has fewer than 3 real options so the player
+  // always gets *something* from leveling, even after every skill is capped.
+  _ic('Restore', (g) => {
+    // Background hex
+    g.shadowColor = '#00ff66'; g.shadowBlur = 10;
+    g.fillStyle = '#001a0c';
+    g.strokeStyle = '#00ff66'; g.lineWidth = 2;
+    g.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const a = i * Math.PI / 3 - Math.PI / 6;
+      const x = c + Math.cos(a) * (c - 6);
+      const y = c + Math.sin(a) * (c - 6);
+      if (i === 0) g.moveTo(x, y); else g.lineTo(x, y);
+    }
+    g.closePath();
+    g.fill();
+    g.stroke();
+    g.shadowBlur = 0;
+    // Medical cross
+    g.fillStyle = '#00ff66';
+    g.shadowColor = '#00ff66'; g.shadowBlur = 6;
+    g.fillRect(c - 2, c - 6, 4, 12);
+    g.fillRect(c - 6, c - 2, 12, 4);
+    g.shadowBlur = 0;
+  });
 }
 initSkillIcons();
 
@@ -2912,7 +2939,9 @@ function renderLevelUpChoices() {
   const panel = document.getElementById('levelup-panel');
   const list  = document.getElementById('up-list');
   list.innerHTML = '';
-  pickUps(3).forEach(u=>{
+
+  const picks = pickUps(3);
+  picks.forEach(u=>{
     const div=document.createElement('div');
     div.className='card';
     // Champion-specific name/desc/flavor/icon overrides
@@ -2946,6 +2975,42 @@ function renderLevelUpChoices() {
     };
     list.appendChild(div);
   });
+
+  // Fallback card — when the regular pool can't fill all 3 slots (every skill
+  // capped, exclusive picks taken, etc.), offer a 50% max-HP heal so leveling
+  // always rewards the player with *something*. Not added to chosenSkills or
+  // skillCounts — it's a one-shot consumable, not a skill.
+  if (picks.length < 3) {
+    const div = document.createElement('div');
+    div.className = 'card';
+    const icon = skillIconDataURL('Restore');
+    div.innerHTML =
+      `<img class="card-icon" src="${icon}" alt="">`+
+      `<div class="card-text">`+
+        `<div class="cn">RESTORE</div>`+
+        `<div class="cd">Recover 50% max HP</div>`+
+        `<div class="cf">Catch your breath before the next horizon.</div>`+
+      `</div>`;
+    div.onclick = () => {
+      const healAmt = Math.round(P.mhp * 0.5);
+      P.hp = Math.min(P.mhp, P.hp + healAmt);
+      // Healing burst for visual feedback
+      burst(P.x, P.y, '#00ff66', 18, 130, 0.6);
+      burst(P.x, P.y, '#ffffff', 8, 180, 0.4);
+      xpPops.push({
+        x: P.x, y: P.y - P.r - 8,
+        vy: -60, life: 1.1, ml: 1.1,
+        text: '+' + healAmt + ' HP',
+        val: healAmt, col: '#00ff66',
+      });
+      panel.style.display='none';
+      hideEquippedPanel();
+      mode='play';
+      lastTs=0;
+      loop(performance.now());
+    };
+    list.appendChild(div);
+  }
 }
 
 function renderChosenSkillsList() {

@@ -7368,10 +7368,11 @@ function drawChapterBanner(CW, CH) {
   ctx.fillText(txt, 0, 0);
   ctx.shadowBlur = 0;
 
-  // Subtitle below
+  // Subtitle below — "BEGINS" on the very first wave, "CONTINUES" afterward.
   ctx.font = 'bold 12px "Courier New", monospace';
   ctx.fillStyle = `rgba(${_hexRGB(accent)},${0.75 * alpha})`;
-  ctx.fillText('THE CRUSADE CONTINUES', 0, 28);
+  const subtitle = (wavesCleared === 0) ? 'THE CRUSADE BEGINS' : 'THE CRUSADE CONTINUES';
+  ctx.fillText(subtitle, 0, 28);
   ctx.restore();
 }
 

@@ -378,6 +378,13 @@ h2 { font-size:28px; margin-bottom:6px; color:#ff0080;
   margin-bottom:8px;
 }
 .champion-desc { font-size:11.5px; color:#bda5d0; line-height:1.55; margin-bottom:8px; }
+.champion-passive {
+  font-size:10.5px; color:#ffd84a; line-height:1.5; letter-spacing:0.5px;
+  margin-bottom:8px; padding:5px 8px;
+  background:rgba(255,216,74,0.07);
+  border-left:2px solid #ffd84a;
+}
+.champion-passive .ps-label { color:#fff; font-weight:bold; letter-spacing:2px; margin-right:6px; }
 .champion-stats { font-size:10px; color:#88a6c0; line-height:1.6; letter-spacing:1px; }
 .champion-stats b { color:#ffea00; font-weight:bold; }
 
@@ -2047,6 +2054,7 @@ const CHAMPIONS = [
     id:'reaper', name:'REAPER',
     tag:'AURA · WEAK SHOT',
     desc:'Foes wither in your shadow. Your sidearm is a whisper compared to your wrath.',
+    passive:'Starts with a 20 DPS damaging aura — no skill pick required.',
     stats:{ hp:90, mhp:90, spd:205, sDmg:11, sInt:1.05, sPierce:1, auraDmg:20, auraR:140, mag:130, rerolls:2 },
     weapon:'pistol', weaponScale:1.0,
     palette:{ TRIM:'#b400ff', ACCENT:'#ff2a6d', ARMOR_LIGHT:'#3b2848', ARMOR_MID:'#22162a', ARMOR_DARK:'#0a0014', EYE:'#ff2a6d' },
@@ -2058,6 +2066,7 @@ const CHAMPIONS = [
     id:'lancer', name:'LANCER',
     tag:'PIERCING · HEAVY',
     desc:'One slow, devastating shot. Pierces deeper every 10 levels.',
+    passive:'+1 Shot Pierce every 10 levels — capped at +5 (lv 10 / 20 / 30 / 40 / 50).',
     stats:{ hp:110, mhp:110, spd:195, sDmg:40, sInt:1.50, sPierce:3, auraDmg:0, mag:115, rerolls:2 },
     weapon:'blaster', weaponScale:1.45,
     palette:{ TRIM:'#ff7a00', ACCENT:'#ffd84a', ARMOR_LIGHT:'#7a6a4a', ARMOR_MID:'#3a3020', ARMOR_DARK:'#1a1008', EYE:'#ff7a00' },
@@ -3500,12 +3509,16 @@ function openChampionSelect() {
     const lockOverlay = locked
       ? `<div class="champion-lock">LOCKED<br><span>${unlockReqText(ch.id)}</span></div>`
       : '';
+    const passiveBlock = ch.passive
+      ? `<div class="champion-passive"><span class="ps-label">✦ PASSIVE</span>${ch.passive}</div>`
+      : '';
     div.innerHTML =
       `<canvas class="champion-portrait" width="120" height="140"></canvas>`+
       `<div class="champion-card-body">`+
         `<div class="champion-name">${ch.name}</div>`+
         `<div class="champion-tag">${ch.tag}</div>`+
         `<div class="champion-desc">${ch.desc}</div>`+
+        passiveBlock +
         `<div class="champion-stats">${statsLine}</div>`+
       `</div>`+
       lockOverlay;

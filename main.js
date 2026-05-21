@@ -22,6 +22,13 @@ const { app, BrowserWindow, Menu, globalShortcut, net } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
+// Disable Chromium's autoplay gesture requirement so the title-screen music
+// can start the moment the window loads, without waiting for a click or keypress.
+// Safe inside Electron because the user already chose to launch this app —
+// the "user gesture" the browser is guarding against has effectively happened.
+// Must be called before app.whenReady() resolves.
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+
 // ── Auto-update configuration ────────────────────────────────────────────────
 const UPDATE_REPO = 'nathan-ewing/Game';   // GitHub user/repo (must be public)
 const UPDATE_FILE = 'game.html';            // file to fetch from the repo root

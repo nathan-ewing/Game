@@ -7572,15 +7572,33 @@ function titleBg(ts) {
 }
 requestAnimationFrame(titleBg);
 
-// ── Title-music autostart on first user interaction (browser autoplay rules) ─
+// ── Title-music autostart ────────────────────────────────────────────────────
+// In Electron the autoplay-policy switch in main.js removes the gesture
+// requirement, so we can start the music the instant the page loads. In a
+// regular browser autoplay is still blocked, so we keep the fallback that
+// kicks music off on the first click or keypress.
 (function kickoffTitleMusicOnce() {
+  const isElectron = typeof navigator !== 'undefined'
+    && navigator.userAgent
+    && navigator.userAgent.includes('Electron');
+
   const start = () => {
-    removeEventListener('pointerdown', start, true);
-    removeEventListener('keydown', start, true);
-    if (mode === 'title') startTitleMusic();
+    if (mode === 'title' && !musicRunning) startTitleMusic();
   };
-  addEventListener('pointerdown', start, true);
-  addEventListener('keydown', start, true);
+
+  if (isElectron) {
+    // Fire immediately. If for any reason the AudioContext can't start yet,
+    // the user-gesture listeners below still serve as a safety net.
+    start();
+  }
+
+  const gestureStart = () => {
+    removeEventListener('pointerdown', gestureStart, true);
+    removeEventListener('keydown',     gestureStart, true);
+    start();
+  };
+  addEventListener('pointerdown', gestureStart, true);
+  addEventListener('keydown',     gestureStart, true);
 })();
 
 // ── Initial-box auto-advance ──────────────────────────────────────────────────

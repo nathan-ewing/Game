@@ -115,21 +115,35 @@ async function resolveGameHtmlPath() {
 }
 
 // ── Fetch latest game.html from GitHub ───────────────────────────────────────
-// Tries `main` first, then `master`, so this works regardless of the default
-// branch name. Includes a sanity check so we never load garbage as game.html.
+// Uses the GitHub Contents API rather than raw.githubusercontent.com because the
+// raw CDN can cache a stale copy for several minutes after a push. The API
+// queries git directly and reflects changes immediately. Anonymous calls are
+// rate-limited to 60/hour, which is far more than this app will ever need.
+// Falls back to the raw URL only if the API call itself fails (offline, rate
+// limited) so we have two layers of redundancy.
 async function fetchLatestGameHtml() {
-  const branches = ['main', 'master'];
-  for (const branch of branches) {
-    const url = `https://raw.githubusercontent.com/${UPDATE_REPO}/${branch}/${UPDATE_FILE}`;
-    try {
-      const text = await fetchUrl(url, FETCH_TIMEOUT_MS);
-      // Sanity gate: must look like our game before we'll swap it in.
+  // Primary: GitHub Contents API (instant, no CDN cache, ~1MB limit)
+  const apiUrl = `https://api.github.com/repos/${UPDATE_REPO}/contents/${UPDATE_FILE}`;
+  try {
+    const json = await fetchUrl(apiUrl, FETCH_TIMEOUT_MS);
+    const data = JSON.parse(json);
+    if (data && data.encoding === 'base64' && data.content) {
+      const text = Buffer.from(data.content, 'base64').toString('utf8');
       if (text && text.length > 10000 && text.includes('NEON CRUSADE')) {
         return text;
       }
-    } catch (_) {
-      // Branch missing / network error — try the next branch.
     }
+  } catch (_) { /* fall through to raw URL fallback */ }
+
+  // Fallback: raw URL (slower to reflect new pushes but works during API outages)
+  for (const branch of ['main', 'master']) {
+    const url = `https://raw.githubusercontent.com/${UPDATE_REPO}/${branch}/${UPDATE_FILE}`;
+    try {
+      const text = await fetchUrl(url, FETCH_TIMEOUT_MS);
+      if (text && text.length > 10000 && text.includes('NEON CRUSADE')) {
+        return text;
+      }
+    } catch (_) { /* try next */ }
   }
   return null;
 }

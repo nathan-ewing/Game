@@ -4920,10 +4920,11 @@ function update(dt) {
     const v=vacuums[i];
     v.angle+=dt*4;
     const d=dist(v,P);
-    const inVac = vacuumActiveT > 0;
-    if((inVac || d<P.mag) && d>0.001){
+    // Vacuum pickups deliberately ignore the vacuum *effect* — picking up one
+    // vacuum shouldn't auto-grab every other vacuum on the map. Magnet only.
+    if(d < P.mag && d > 0.001){
       const nx=(P.x-v.x)/d, ny=(P.y-v.y)/d;
-      const spd = inVac ? P.spd*2.0 : Math.max(d<55?500:200, P.spd*1.05);
+      const spd = Math.max(d<55?500:200, P.spd*1.05);
       v.x+=nx*spd*dt; v.y+=ny*spd*dt;
     }
     if(d<P.r+v.r+4){
@@ -5008,10 +5009,12 @@ function update(dt) {
     const em=emps[i];
     em.phase += dt*3;
     const d=dist(em,P);
-    const inVac = vacuumActiveT > 0;
-    if((inVac || d<P.mag) && d>0.001){
+    // EMPs deliberately ignore the vacuum effect — they're a clutch consumable
+    // and the player should choose when to grab one, not have it pulled while
+    // sweeping up gems. Magnet only.
+    if(d < P.mag && d > 0.001){
       const nx=(P.x-em.x)/d, ny=(P.y-em.y)/d;
-      const spd2 = inVac ? P.spd*2.0 : Math.max(d<55?500:200, P.spd*1.05);
+      const spd2 = Math.max(d<55?500:200, P.spd*1.05);
       em.x+=nx*spd2*dt; em.y+=ny*spd2*dt;
     }
     if(d < P.r + em.r + 4){

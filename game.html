@@ -1521,7 +1521,7 @@ const UPS = [
   { n:'Magnetism',       d:'Attract pickups from farther',     a:p=>{ p.mag+=90; },                                                    f:'All things drawn to a hero.' },
   { n:'Regeneration',    d:'Restore 1% max HP per second',     a:p=>{ p.regen+=0.01; },                                                f:'Wounds knit in neon light.' },
   // Sword Master only — only appears once Crescent Slash is unlocked.
-  { n:'Bigger is Better', d:'Crescent Slash carves a wider arc', a:p=>{ p.crescentSize = (p.crescentSize||1) * 1.30; },                  f:'A broader edge. Fewer survivors.',
+  { n:'Bigger is Better', d:'Crescent Slash carves a wider arc', a:p=>{ p.crescentSize = (p.crescentSize||1) * 1.35; },                  f:'A broader edge. Fewer survivors.',
     championOnly:'swordmaster', requires:p=>p.crescentRange > 0 },
 ];
 
@@ -2156,6 +2156,9 @@ const CHAMPIONS = [
     weapon:'sword', weaponScale:1.0,
     saberColor:'#00ff66',  // neon-green plasma blade — also colors every sword attack effect
     palette:{ TRIM:'#00ff66', ACCENT:'#ffd700', ARMOR_LIGHT:'#88889a', ARMOR_MID:'#42425a', ARMOR_DARK:'#1c1c2e', EYE:'#00ff66' },
+    // Faster Strikes capped at 4 — past that her swing interval hits the 0.22s
+    // floor and additional picks are silently wasted. The cap stops the bait.
+    skillCaps:{ 'Rapid Fire':4 },
     // Sword-themed renames; Penetrator action is overridden to unlock/extend Crescent Slash.
     upgradeRenames:{
       'More Power!!!': { n:'Heavier Blade',  d:'+40% blade damage',  f:'Your edge bites deeper.' },
@@ -2165,7 +2168,7 @@ const CHAMPIONS = [
         d:'Unlock a ranged crescent that pierces every foe in its path.',
         f:'A scythe of light, hurled into the dark.',
         icon:'Crescent Slash',
-        a: p => { p.crescentRange = 420; p.crescentSize = 1; },
+        a: p => { p.crescentRange = 450; p.crescentSize = 1; },
       },
       // Drone skills (Full Contact Drone, Drone Power, Drone Speed) are shared across all
       // champions — no Sword Master rename for these.

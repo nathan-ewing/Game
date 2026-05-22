@@ -1480,24 +1480,33 @@ function gemTierFor(hp) {
 }
 
 // ── Upgrades ─────────────────────────────────────────────────────────────────
-// Soft-cap helper: full multiplier for stacks 0-4, half-bonus from stack 5 onward.
-// e.g. More Power!!! with bonus=0.40 → ×1.40 for first 5 picks, ×1.20 thereafter.
+// Soft-cap helper: full multiplier for stacks 0-4, half-bonus from stack 5 onward,
+// THEN full bonus again on the FINAL (hard-cap) pick as a "you maxed it out" reward.
+// e.g. More Power!!! with bonus=0.40 and HARD_CAPS['More Power!!!']=15:
+//   picks 1-5  → ×1.40   (full)
+//   picks 6-14 → ×1.20   (half)
+//   pick  15   → ×1.40   (full — final reward)
 function _softMult(name, bonus) {
   const stacks = skillCounts.get(name) || 0;
+  const hardCap = HARD_CAPS.get(name);
+  // The pick *about to* take us to the hard cap (stacks === cap - 1) pays
+  // the full bonus instead of the half. Skills without a hard-cap entry
+  // just behave as the original soft-cap.
+  if (hardCap !== undefined && stacks === hardCap - 1) return 1 + bonus;
   return 1 + (stacks >= 5 ? bonus * 0.5 : bonus);
 }
 const UPS = [
-  { n:'More Power!!!',   d:'+40% shot damage  (½ past 5 stacks)', a:p=>{ p.sDmg=Math.round(p.sDmg * _softMult('More Power!!!', 0.40)); }, f:'Your blade burns hotter.' },
+  { n:'More Power!!!',   d:'+40% shot damage  (½ past 5, full at 15)', a:p=>{ p.sDmg=Math.round(p.sDmg * _softMult('More Power!!!', 0.40)); }, f:'Your blade burns hotter.' },
   { n:'Rapid Fire',      d:'Fire 30% faster',                  a:p=>{ p.sInt=Math.max(0.22,p.sInt*0.70); },                            f:'Strike before they can flee.' },
   { n:'Penetrator',      d:'Shots pierce +1 extra enemy',      a:p=>{ p.sPierce++; },                                                  f:'The chrome melts before your wrath.' },
   { n:'Full Contact Drone', d:'Deploy an orbiting combat drone', a:p=>{ p.orbs++; },                                                  f:'It hovers. It hunts. It collides.' },
-  { n:'Drone Power',        d:'+50% drone damage (½ past 5 stacks)', a:p=>{ if(p.orbs>0) p.oDmg=Math.round(p.oDmg * _softMult('Drone Power', 0.50)); }, f:'Higher voltage. Heavier impact.', requires:p=>p.orbs>0 },
+  { n:'Drone Power',        d:'+50% drone damage (½ past 5, full at 15)', a:p=>{ if(p.orbs>0) p.oDmg=Math.round(p.oDmg * _softMult('Drone Power', 0.50)); }, f:'Higher voltage. Heavier impact.', requires:p=>p.orbs>0 },
   { n:'Drone Speed',        d:'Drones orbit 30% faster',         a:p=>{ if(p.orbs>0) p.oSpd *= 1.30; },                                f:'Rotors at maximum.', requires:p=>p.orbs>0 },
   { n:'Aura',            d:'Emit a continually damaging aura', a:p=>{ p.auraDmg=Math.max(p.auraDmg,18); },                             f:'The crusade follows you.' },
-  { n:'Aura Power',      d:'+60% aura damage (½ past 5 stacks)', a:p=>{ if(p.auraDmg>0) p.auraDmg=Math.round(p.auraDmg * _softMult('Aura Power', 0.60)); }, f:'Heat from your shadow.',    requires:p=>p.auraDmg>0 },
+  { n:'Aura Power',      d:'+60% aura damage (½ past 5, full at 15)', a:p=>{ if(p.auraDmg>0) p.auraDmg=Math.round(p.auraDmg * _softMult('Aura Power', 0.60)); }, f:'Heat from your shadow.',    requires:p=>p.auraDmg>0 },
   { n:'Aura Reach',      d:'Aura radius +50',                  a:p=>{ p.auraR+=50; },                                                  f:'Cleanse a wider battlefield.', requires:p=>p.auraDmg>0 },
   { n:'Orbital Cannon',  d:'Strike random enemies from orbit every 7s', a:p=>{ p.strikeDmg=Math.max(p.strikeDmg,110); p.strikeT=Math.min(p.strikeT||999,1.5); }, f:'They will not see the sky open.' },
-  { n:'Cannon Power',    d:'+45% strike damage  (½ past 5 stacks)', a:p=>{ if(p.strikeDmg>0) p.strikeDmg=Math.round(p.strikeDmg * _softMult('Cannon Power', 0.45)); }, f:'Bigger fish. Brighter sky.',   requires:p=>p.strikeDmg>0 },
+  { n:'Cannon Power',    d:'+45% strike damage (½ past 5, full at 15)', a:p=>{ if(p.strikeDmg>0) p.strikeDmg=Math.round(p.strikeDmg * _softMult('Cannon Power', 0.45)); }, f:'Bigger fish. Brighter sky.',   requires:p=>p.strikeDmg>0 },
   { n:'More, Give Me More!', d:'Strikes 22% faster AND +1 per volley',
     a:p=>{
       if(p.strikeDmg>0){

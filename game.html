@@ -1496,7 +1496,7 @@ function _softMult(name, bonus) {
   return 1 + (stacks >= 5 ? bonus * 0.5 : bonus);
 }
 const UPS = [
-  { n:'More Power!!!',   d:'+50% shot damage  (½ past 5, full at 15)', a:p=>{ p.sDmg=Math.round(p.sDmg * _softMult('More Power!!!', 0.50)); }, f:'Your blade burns hotter.' },
+  { n:'More Power!!!',   d:'+45% shot damage  (½ past 5, full at 15)', a:p=>{ p.sDmg=Math.round(p.sDmg * _softMult('More Power!!!', 0.45)); }, f:'Your blade burns hotter.' },
   { n:'Rapid Fire',      d:'Fire 30% faster',                  a:p=>{ p.sInt=Math.max(0.22,p.sInt*0.70); },                            f:'Strike before they can flee.' },
   { n:'Penetrator',      d:'Shots pierce +1 extra enemy',      a:p=>{ p.sPierce++; },                                                  f:'The chrome melts before your wrath.' },
   { n:'Full Contact Drone', d:'Deploy an orbiting combat drone', a:p=>{ p.orbs++; },                                                  f:'It hovers. It hunts. It collides.' },
@@ -1506,7 +1506,7 @@ const UPS = [
   { n:'Aura Power',      d:'+60% aura damage (½ past 5, full at 15)', a:p=>{ if(p.auraDmg>0) p.auraDmg=Math.round(p.auraDmg * _softMult('Aura Power', 0.60)); }, f:'Heat from your shadow.',    requires:p=>p.auraDmg>0 },
   { n:'Aura Reach',      d:'Aura radius +50',                  a:p=>{ p.auraR+=50; },                                                  f:'Cleanse a wider battlefield.', requires:p=>p.auraDmg>0 },
   { n:'Orbital Cannon',  d:'Strike random enemies from orbit every 7s', a:p=>{ p.strikeDmg=Math.max(p.strikeDmg,110); p.strikeT=Math.min(p.strikeT||999,1.5); }, f:'They will not see the sky open.' },
-  { n:'Cannon Power',    d:'+55% strike damage (½ past 5, full at 15)', a:p=>{ if(p.strikeDmg>0) p.strikeDmg=Math.round(p.strikeDmg * _softMult('Cannon Power', 0.55)); }, f:'Bigger fish. Brighter sky.',   requires:p=>p.strikeDmg>0 },
+  { n:'Cannon Power',    d:'+50% strike damage (½ past 5, full at 15)', a:p=>{ if(p.strikeDmg>0) p.strikeDmg=Math.round(p.strikeDmg * _softMult('Cannon Power', 0.50)); }, f:'Bigger fish. Brighter sky.',   requires:p=>p.strikeDmg>0 },
   { n:'More, Give Me More!', d:'Strikes 22% faster AND +1 per volley',
     a:p=>{
       if(p.strikeDmg>0){

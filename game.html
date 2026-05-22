@@ -2780,24 +2780,29 @@ function bossExecuteAttack(e) {
       });
     }
   } else if (e.attackKind === 'summon') {
-    // Spawn 3-4 wraith-like minions around the boss
-    const n = 3 + Math.floor(Math.random()*2);
+    // Spawn 4-6 minions around the boss. HP & damage scale much harder with
+    // boss tier so summons stay relevant against late-game shot damage —
+    // previously they died in a single hit and the attack felt meaningless.
+    const n = 4 + Math.floor(Math.random()*3);
     for (let i = 0; i < n; i++) {
       const ang = Math.random() * Math.PI * 2;
       const dist = e.r + 30 + Math.random() * 30;
       const mx = e.x + Math.cos(ang) * dist;
       const my = e.y + Math.sin(ang) * dist;
-      // Pick a stronger archetype than the current weakest
       const pool = ['wraith','wedge','skull'];
       const shape = pool[Math.floor(Math.random()*pool.length)];
-      const hp = 24 + e.bossTier * 12;
+      // HP scaling: comparable to an alpha-tier enemy at the boss's wave.
+      // At boss 3 (gt=900) → 200 HP; at boss 6 → 320; at boss 10 → 480.
+      const hp = 80 + e.bossTier * 40;
       enemies.push({
-        x:mx, y:my, r:14, hp, mhp:hp, spd:140,
-        dmg: 10 + e.bossTier * 4,
+        x:mx, y:my, r:14, hp, mhp:hp, spd:155,
+        dmg: 14 + e.bossTier * 5,
         col: e.col,
         shape,
         id: Math.random(),
         flash:0.4, kx:0, ky:0,
+        wave: 5,            // count as alpha for XP-multiplier purposes
+        isSummon: true,     // flagged so we can target effects on them later
       });
       burst(mx, my, e.col, 6, 80, 0.45);
     }

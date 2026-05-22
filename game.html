@@ -2105,8 +2105,8 @@ const CHAMPIONS = [
     id:'crusader', name:'CRUSADER',
     tag:'BALANCED',
     desc:'A steady hand and a steady blaster. No surprises, no weaknesses.',
-    passive:'Regular Dude.',
-    passiveDesc:"I'm just a regular dude.",
+    passive:'Experienced Veteran',
+    passiveDesc:'+10% XP gained from all sources. Reaches level milestones and skill caps faster than any other champion.',
     stats:{ hp:100, mhp:100, spd:210, sDmg:22, sInt:0.90, sPierce:1, auraDmg:0, mag:115, rerolls:3 },
     weapon:'blaster', weaponScale:1.0,
     palette:{ TRIM:'#00ffff', ACCENT:'#ff0080', ARMOR_LIGHT:'#6a6a82', ARMOR_MID:'#3a3a52', ARMOR_DARK:'#16162a', EYE:'#00ffff' },
@@ -2138,7 +2138,7 @@ const CHAMPIONS = [
     excludeSkills:['Penetrator'],
     // The Lancer is built around heavy single shots — keep her from over-stacking
     // speed. These caps override the global UNCAPPED_SKILLS set.
-    skillCaps:{ 'Rapid Fire':5, 'Sprint':3 },
+    skillCaps:{ 'Rapid Fire':5, 'Sprint':4 },
   },
   {
     id:'swordmaster', name:'SWORD MASTER',
@@ -3150,6 +3150,12 @@ function sfxBossSpawn() {
 // ── Level-up UI ───────────────────────────────────────────────────────────────
 // Past level 25 — no skill choice screen. Instead, fully heal the player and play
 // a celebratory effect. Leveling continues forever; only skill picks stop.
+// Champion XP multiplier — currently only Crusader's "Experienced Veteran"
+// passive boosts XP gain. Applied at every XP-gain site (gems, fruit-as-XP).
+function xpMult() {
+  return (selectedChampion && selectedChampion.id === 'crusader') ? 1.10 : 1.0;
+}
+
 // Champion-specific passive milestones — fire on every P.lv++ and grant
 // stat bumps that don't consume a skill slot. Extend here per-champion as
 // needed. Called from every level-up site (gem pickup, fruit pickup, dev).
@@ -4853,10 +4859,11 @@ function update(dt) {
       g.x+=nx*spd*dt; g.y+=ny*spd*dt;
     }
     if(d<P.r+g.r+4){
-      P.xp+=g.v; gems.splice(i,1);
+      const gain = Math.round(g.v * xpMult());
+      P.xp += gain; gems.splice(i,1);
       triggerHint('soul_pickup', 'Walk near glowing souls to collect them and gain XP');
       xpPops.push({x:P.x+(Math.random()-.5)*20,y:P.y-P.r-4,
-        vy:-46, life:0.6, ml:0.6, val:g.v, col:g.col});
+        vy:-46, life:0.6, ml:0.6, val:gain, col:g.col});
       if(P.xp>=P.xpN){
         P.xp-=P.xpN; P.lv++;
         // Progressive XP curve — increases more steeply as level rises
@@ -4899,8 +4906,8 @@ function update(dt) {
       triggerHint('fruit_pickup', 'Fruit restores HP — or grants XP when at full health');
       sfxChomp();
       if (P.hp >= P.mhp) {
-        // Full health → convert heal value to XP
-        const xpGain = f.heal;
+        // Full health → convert heal value to XP (boosted by champion xpMult)
+        const xpGain = Math.round(f.heal * xpMult());
         P.xp += xpGain;
         xpPops.push({x:P.x+(Math.random()-.5)*16, y:P.y-P.r-4,
           vy:-50, life:0.8, ml:0.8, val:xpGain, col:f.col});

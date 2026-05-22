@@ -1556,6 +1556,12 @@ function pickUps(n=3) {
   // Champion-exclusive skills
   const champId = selectedChampion && selectedChampion.id;
   pool = pool.filter(u => !u.championOnly || u.championOnly === champId);
+  // Sword Master's Crescent Slash (renamed Penetrator) is one-time only —
+  // it exists purely to unlock the ranged crescent ability. After that
+  // pick, Bigger is Better is the only Crescent-tree skill that still scales.
+  if (champId === 'swordmaster' && P && P.crescentRange > 0) {
+    pool = pool.filter(u => u.n !== 'Penetrator');
+  }
   // Skills with prerequisites
   pool = pool.filter(u => !u.requires || (P && u.requires(P)));
   // Per-champion banned skills (e.g. Reaper can't pick Penetrator / More Power!!!)
@@ -2156,13 +2162,10 @@ const CHAMPIONS = [
       'Rapid Fire':    { n:'Faster Strikes', d:'Swing 30% faster',   f:'A blur of steel.' },
       'Penetrator':    {
         n:'Crescent Slash',
-        d:'Hurl a ranged crescent — pierces every foe in its path. Stack to extend its reach.',
+        d:'Unlock a ranged crescent that pierces every foe in its path.',
         f:'A scythe of light, hurled into the dark.',
         icon:'Crescent Slash',
-        a: p => {
-          if (!p.crescentRange) { p.crescentRange = 280; p.crescentSize = 1; }
-          else                  { p.crescentRange += 160; }
-        },
+        a: p => { p.crescentRange = 420; p.crescentSize = 1; },
       },
       // Drone skills (Full Contact Drone, Drone Power, Drone Speed) are shared across all
       // champions — no Sword Master rename for these.

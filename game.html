@@ -553,7 +553,9 @@ h2 { font-size:28px; margin-bottom:6px; color:#ff0080;
 .lb-row.new-score { background:rgba(255,220,50,0.09); border:1px solid rgba(255,220,50,0.25); }
 .lb-rank  { width:28px; color:#555; font-size:12px; }
 .lb-name  { width:52px; font-weight:bold; letter-spacing:3px; color:#fff; }
-.lb-time  { flex:1; color:#4af; text-align:right; }
+.lb-title { flex:1; color:#ffd84a; font-size:11px; letter-spacing:2px; padding-left:8px;
+            text-shadow:0 0 8px rgba(255,216,74,0.45); }
+.lb-time  { width:62px; color:#4af; text-align:right; }
 .lb-kills { width:82px; color:#888; text-align:right; font-size:12px; }
 
 /* ── Keyframe animations ─────────────────────────────────────────────────── */
@@ -689,7 +691,9 @@ h1 { animation:titleGlow 3.5s ease-in-out infinite; }
 .hs-name-n { color:#bbb; }
 .hs-time { flex:1; text-align:right; font-size:18px; font-weight:bold; color:#4af;
   text-shadow:0 0 12px rgba(74,170,255,0.4); }
-.hs-meta { color:#555; font-size:11px; min-width:70px; text-align:right; line-height:1.7; }
+.hs-meta { color:#555; font-size:11px; min-width:84px; text-align:right; line-height:1.7; }
+.hs-meta-rank { display:block; color:#ffd84a; font-size:11px; font-weight:bold; letter-spacing:2px;
+                text-shadow:0 0 8px rgba(255,216,74,0.5); margin-bottom:2px; }
 
 .hs-empty { padding:40px 20px; color:#444; font-size:14px; line-height:2; }
 .hs-divider { height:1px; background:linear-gradient(90deg,transparent,rgba(255,215,0,0.15),transparent); margin:18px 0; }
@@ -4341,6 +4345,9 @@ function renderHighScoresPanel() {
       const nameCls = rank <= 3 ? `hs-name-${rank}` : 'hs-name-n';
       const medCls  = rank <= 3 ? `medal-${rank}`   : 'medal-n';
       const medSym  = rank === 1 ? '♛' : rank === 2 ? '★' : rank === 3 ? '◆' : rank;
+      // Rank title earned (computed from the stored time + bosses, falls
+      // back to time-only ranking for legacy entries without `bosses`).
+      const title = getRankTitle(s.time, s.bosses || 0);
       const row = document.createElement('div');
       row.className = `hs-row ${rowCls}`;
       row.style.animationDelay = `${i * 0.055}s`;
@@ -4348,7 +4355,10 @@ function renderHighScoresPanel() {
         `<div class="hs-medal ${medCls}">${medSym}</div>`+
         `<div class="hs-name ${nameCls}">${s.name}</div>`+
         `<div class="hs-time">${mins}:${secs}</div>`+
-        `<div class="hs-meta">${s.kills} kills<br>LV ${s.level}</div>`;
+        `<div class="hs-meta">`+
+          `<span class="hs-meta-rank">${title}</span>`+
+          `${s.kills} kills<br>LV ${s.level}`+
+        `</div>`;
       list.appendChild(row);
     });
   }
@@ -4441,7 +4451,7 @@ function submitScore() {
     const v = (document.getElementById(id).value || '?').toUpperCase()[0];
     return /[A-Z0-9]/.test(v) ? v : '?';
   }).join('');
-  const entry = { name, time: gt, kills, level: P.lv };
+  const entry = { name, time: gt, kills, level: P.lv, bosses: wavesCleared };
   const scores = loadScores();
   scores.push(entry);
   scores.sort((a,b) => b.time - a.time);
@@ -4459,10 +4469,14 @@ function renderLeaderboard(scores, highlightIdx) {
   list.innerHTML = '';
   scores.forEach((s, i) => {
     const mins = Math.floor(s.time/60), secs = Math.floor(s.time%60).toString().padStart(2,'0');
+    // Compute rank from stored time + bosses. Old entries without `bosses`
+    // fall back to time-only ranking (s.bosses || 0).
+    const title = getRankTitle(s.time, s.bosses || 0);
     const row = document.createElement('div');
     row.className = 'lb-row' + (i === highlightIdx ? ' new-score' : '');
     row.innerHTML = `<span class="lb-rank">#${i+1}</span>`
       + `<span class="lb-name">${s.name}</span>`
+      + `<span class="lb-title">${title}</span>`
       + `<span class="lb-time">${mins}:${secs}</span>`
       + `<span class="lb-kills">${s.kills} kills</span>`;
     list.appendChild(row);

@@ -89,6 +89,11 @@ h2 { font-size:28px; margin-bottom:6px; color:#ff0080;
 .stat b { color:#4af; }
 
 /* Run summary on gameover panel */
+.rank-champion {
+  font-size:13px; letter-spacing:5px; color:#00ffff;
+  text-shadow:0 0 10px rgba(0,255,255,0.6);
+  margin-bottom:6px;
+}
 .rank-title {
   font-size:34px; font-weight:bold;
   color:#ffea00; letter-spacing:8px;
@@ -4482,7 +4487,9 @@ function showGameOverPanel() {
   const mins=Math.floor(gt/60), secs=Math.floor(gt%60).toString().padStart(2,'0');
   const rank = getRankTitle(gt, wavesCleared);
   // Score breakdown
+  const championName = (selectedChampion && selectedChampion.name) || '';
   document.getElementById('go-stats').innerHTML =
+    (championName ? `<div class="rank-champion">${championName}</div>` : '')+
     `<div class="rank-title">${rank}</div>`+
     `<div class="rank-sub">YOUR CRUSADE ENDS</div>`+
     `<div class="go-grid">`+

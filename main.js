@@ -30,6 +30,17 @@ const fs = require('fs');
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
 // ── Auto-update configuration ────────────────────────────────────────────────
+// Flip STEAM_BUILD to true before running `npm run dist:steam` (or whatever
+// build script targets the Steam depot). When true, the GitHub auto-fetch is
+// completely disabled and the app always loads its bundled game.html — Steam
+// handles version updates through its own depot/patch system, and this avoids
+// version mismatch between the bundled main.js and a freshly-fetched
+// game.html that may have been written against a newer main.js.
+//
+// Leave false for personal/local distributable builds where you want git-push
+// to deliver gameplay updates without rebuilding the .app.
+const STEAM_BUILD = false;
+
 const UPDATE_REPO = 'nathan-ewing/Game';   // GitHub user/repo (must be public)
 const UPDATE_FILE = 'game.html';            // file to fetch from the repo root
 const FETCH_TIMEOUT_MS = 3500;              // give up if GitHub doesn't respond in time
@@ -102,6 +113,12 @@ async function resolveGameHtmlPath() {
   // Dev mode: bypass the update flow entirely so local edits are visible
   // immediately via the file watcher + reload pattern.
   if (!app.isPackaged) return bundledPath;
+
+  // Steam build: no outbound network. Steam manages updates via depot patches.
+  if (STEAM_BUILD) {
+    console.log('[update] STEAM_BUILD=true — using bundled game.html');
+    return bundledPath;
+  }
 
   // Production mode: try GitHub → cache → bundled fallback.
   const cacheDir  = app.getPath('userData');

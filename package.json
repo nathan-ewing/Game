@@ -12,7 +12,9 @@
     "dist": "electron-builder --mac --win --linux",
     "dist:mac": "electron-builder --mac",
     "dist:win": "electron-builder --win",
-    "dist:linux": "electron-builder --linux"
+    "dist:linux": "electron-builder --linux",
+    "_dist_steam_note": "Before running `npm run dist:steam`, flip STEAM_BUILD=true at the top of main.js, then flip back to false after.",
+    "dist:steam": "electron-builder --mac --win"
   },
   "devDependencies": {
     "electron": "^33.0.0",

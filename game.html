@@ -8,6 +8,10 @@
 body { background:#05000c; overflow:hidden; font-family:'Courier New',monospace;
   color:#f0d8ff; }
 canvas { display:block; }
+/* Accessibility: toggled by Settings → Display → HIGH CONTRAST.
+   Pushes the synthwave palette toward higher visibility for colorblind
+   and low-vision players. CSS handles it so the game code stays clean. */
+canvas#c.high-contrast { filter: contrast(1.3) saturate(1.25) brightness(1.05); }
 
 /* CRT scanlines overlay across the whole page */
 body::before {
@@ -842,6 +846,12 @@ h1 { animation:titleGlow 3.5s ease-in-out infinite; }
         <input id="opt-reduce-shake" type="checkbox"> REDUCE SCREEN SHAKE
       </label>
     </div>
+    <div class="sound-row" style="margin-top:14px">
+      <label class="hardcore-chk" style="border-color:rgba(0,255,255,0.3);color:#00ffff">
+        <input id="opt-high-contrast" type="checkbox"> HIGH CONTRAST
+      </label>
+    </div>
+    <p class="sub" style="font-size:10px;margin-top:10px;letter-spacing:1.5px;text-align:center;color:#776080">Boosts contrast + saturation for low-vision and colorblind players.</p>
   </div>
 
   <!-- ── DANGER ZONE ──────────────────────────────────────── -->
@@ -3617,6 +3627,21 @@ function showSettings() {
       rs._wired = true;
     }
   }
+  // High-contrast accessibility toggle — flips a class on the canvas;
+  // the CSS rule at the top of the file does the actual color work.
+  const hc = document.getElementById('opt-high-contrast');
+  if (hc) {
+    const cv = document.getElementById('c');
+    hc.checked = cv ? cv.classList.contains('high-contrast') : false;
+    if (!hc._wired) {
+      hc.addEventListener('change', () => {
+        if (cv) cv.classList.toggle('high-contrast', hc.checked);
+        try { localStorage.setItem('crusade_high_contrast', hc.checked ? '1' : '0'); } catch (_) {}
+        if (typeof scheduleCloudSave === 'function') scheduleCloudSave();
+      });
+      hc._wired = true;
+    }
+  }
   document.getElementById('title-panel').style.display = 'none';
   animatePanel(document.getElementById('settings-panel'));
 }
@@ -4292,6 +4317,18 @@ let shakeMult = (function(){
   try { return localStorage.getItem('crusade_reduce_shake') === '1' ? 0 : 1; }
   catch (_) { return 1; }
 })();
+
+// Accessibility — high-contrast mode. CSS does the visual lift via a
+// class on the canvas. Applied early so the very first frame is already
+// in the right mode and the user doesn't see a flash on load.
+(function(){
+  try {
+    if (localStorage.getItem('crusade_high_contrast') === '1') {
+      const cv = document.getElementById('c');
+      if (cv) cv.classList.add('high-contrast');
+    }
+  } catch (_) {}
+})();
 function applyAudioSettings() {
   if (!masterGain) return;
   const mute = audioSettings.muted ? 0 : 1;
@@ -4479,6 +4516,7 @@ function buildCloudPayload() {
     audio:        localStorage.getItem(AUDIO_KEY)               || '{}',
     fullscreen:   localStorage.getItem('crusade_fullscreen')    || '0',
     reduceShake:  localStorage.getItem('crusade_reduce_shake')  || '0',
+    highContrast: localStorage.getItem('crusade_high_contrast') || '0',
   };
 }
 
@@ -4496,6 +4534,7 @@ function applyCloudPayload(p) {
     if (p.audio)        localStorage.setItem(AUDIO_KEY, p.audio);
     if (p.fullscreen)   localStorage.setItem('crusade_fullscreen', p.fullscreen);
     if (p.reduceShake)  localStorage.setItem('crusade_reduce_shake', p.reduceShake);
+    if (p.highContrast) localStorage.setItem('crusade_high_contrast', p.highContrast);
     return true;
   } catch (_) { return false; }
 }
@@ -4521,6 +4560,11 @@ function reloadInMemoryFromLocalStorage() {
     }
   } catch (_) {}
   try { shakeMult = localStorage.getItem('crusade_reduce_shake') === '1' ? 0 : 1; } catch (_) {}
+  try {
+    const cv = document.getElementById('c');
+    if (cv) cv.classList.toggle('high-contrast',
+      localStorage.getItem('crusade_high_contrast') === '1');
+  } catch (_) {}
   if (typeof renderLifetimeStats === 'function') {
     try { renderLifetimeStats(); } catch (_) {}
   }

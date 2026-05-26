@@ -9177,6 +9177,25 @@ requestAnimationFrame(titleBg);
 // requirement, so we can start the music the instant the page loads. In a
 // regular browser autoplay is still blocked, so we keep the fallback that
 // kicks music off on the first click or keypress.
+// ── Auto-pause on window-blur / tab-hidden ──────────────────────────────────
+// If the player alt-tabs out (or minimises, or switches to another window/app)
+// while actively playing, snap to pause. Saves CPU + battery on laptop/Deck
+// and stops music blasting in their headphones while they're elsewhere.
+// We only auto-pause when mode === 'play'; all other states (title, paused,
+// levelup, dying, dead) are unaffected. Resume requires a manual action so
+// the player doesn't return to a still-running game they weren't ready for.
+(function autoPauseOnBlur() {
+  const maybePause = () => {
+    if (typeof mode !== 'undefined' && mode === 'play' && typeof pauseGame === 'function') {
+      pauseGame();
+    }
+  };
+  addEventListener('blur', maybePause);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) maybePause();
+  });
+})();
+
 (function kickoffTitleMusicOnce() {
   const isElectron = typeof navigator !== 'undefined'
     && navigator.userAgent

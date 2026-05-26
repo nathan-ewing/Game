@@ -775,6 +775,17 @@ h1 { animation:titleGlow 3.5s ease-in-out infinite; }
     </div>
   </div>
 
+  <!-- ── DISPLAY ──────────────────────────────────────────── -->
+  <div style="margin-top:30px;padding-top:18px;border-top:1px solid rgba(0,255,255,0.18)">
+    <div style="color:#00ffff;font-size:12px;letter-spacing:4px;margin-bottom:14px;text-align:center;text-shadow:0 0 8px rgba(0,255,255,0.55)">DISPLAY</div>
+    <div class="sound-row">
+      <label class="hardcore-chk" style="border-color:rgba(0,255,255,0.3);color:#00ffff">
+        <input id="opt-fullscreen" type="checkbox"> FULLSCREEN
+      </label>
+    </div>
+    <p class="sub" style="font-size:10px;margin-top:10px;letter-spacing:1.5px;text-align:center;color:#776080">F11 also toggles fullscreen at any time.</p>
+  </div>
+
   <!-- ── DANGER ZONE ──────────────────────────────────────── -->
   <div style="margin-top:30px;padding-top:18px;border-top:1px solid rgba(255,0,128,0.3)">
     <div style="color:#ff0080;font-size:12px;letter-spacing:4px;margin-bottom:10px;text-align:center;text-shadow:0 0 8px rgba(255,0,128,0.5)">⚠ DANGER ZONE</div>
@@ -3506,6 +3517,29 @@ function showSettings() {
       applyAudioSettings(); saveAudioSettings();
     });
     vM._wired = true;
+  }
+  // Fullscreen toggle — uses the browser Fullscreen API, which Electron
+  // maps to OS-level BrowserWindow fullscreen automatically.
+  const fs = document.getElementById('opt-fullscreen');
+  if (fs) {
+    fs.checked = !!document.fullscreenElement;
+    if (!fs._wired) {
+      fs.addEventListener('change', () => {
+        try {
+          if (fs.checked) {
+            document.documentElement.requestFullscreen?.();
+          } else if (document.fullscreenElement) {
+            document.exitFullscreen?.();
+          }
+        } catch (_) { /* ignore — browser will surface the right error */ }
+      });
+      // Keep the checkbox honest if the user uses F11 or the OS close button
+      document.addEventListener('fullscreenchange', () => {
+        fs.checked = !!document.fullscreenElement;
+        try { localStorage.setItem('crusade_fullscreen', fs.checked ? '1' : '0'); } catch (_) {}
+      });
+      fs._wired = true;
+    }
   }
   document.getElementById('title-panel').style.display = 'none';
   animatePanel(document.getElementById('settings-panel'));

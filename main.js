@@ -71,7 +71,14 @@ async function createWindow() {
   Menu.setApplicationMenu(null);
 
   const pageToLoad = await resolveGameHtmlPath();
-  mainWindow.loadFile(pageToLoad);
+  // Dev console is gated in game.html behind ?dev=1. When running unpackaged
+  // (npm start) we auto-pass the flag so the developer always has access.
+  // Packaged Steam builds never get the flag — dev console stays hidden.
+  if (!app.isPackaged) {
+    mainWindow.loadFile(pageToLoad, { query: { dev: '1' } });
+  } else {
+    mainWindow.loadFile(pageToLoad);
+  }
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();

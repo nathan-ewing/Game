@@ -9423,6 +9423,23 @@ setInterval(() => {
   });
 })();
 
+// ── Dev console gate ────────────────────────────────────────────────────────
+// Hidden by default for shipping (Steam) builds. Enabled when:
+//   • URL contains ?dev=1   (sets localStorage flag; persists across reloads)
+//   • localStorage('crusade_dev') === '1'  (sticky after the URL flag)
+// Disabled via ?dev=0 (clears the flag) or by clearing localStorage.
+// main.js auto-appends ?dev=1 when running unpackaged (npm start) so the
+// developer always has access; packaged production builds never get the flag.
+const _devEnabled = (() => {
+  try {
+    const params = new URLSearchParams(location.search);
+    if (params.get('dev') === '1') { localStorage.setItem('crusade_dev', '1'); return true; }
+    if (params.get('dev') === '0') { localStorage.removeItem('crusade_dev');   return false; }
+    return localStorage.getItem('crusade_dev') === '1';
+  } catch (e) { return false; }
+})();
+
+if (_devEnabled) {
 window.dev = {
   help() {
     const lines = [
@@ -9556,15 +9573,11 @@ window.dev = {
     });
   },
 };
-// Banner suppressed in normal play — set localStorage.crusade_dev_mode = '1'
-// (or call window.dev.enable()) to bring it back. The dev.* functions
-// themselves remain available either way.
-window.dev.enable  = () => { localStorage.setItem('crusade_dev_mode', '1'); console.log('[dev] banner enabled'); };
-window.dev.disable = () => { localStorage.removeItem('crusade_dev_mode');    console.log('[dev] banner disabled'); };
-if (localStorage.getItem('crusade_dev_mode') === '1') {
-  console.log('%c[dev] type dev.help() for playtest commands',
-    'color:#00ffff;background:#000;padding:3px 8px;border:1px solid #00ffff');
-}
+// Banner + global ergonomics — only printed when the dev gate is open.
+window.dev.disable = () => { localStorage.removeItem('crusade_dev'); console.log('[dev] disabled. Reload to fully hide.'); };
+console.log('%c[dev] type dev.help() for playtest commands',
+  'color:#00ffff;background:#000;padding:3px 8px;border:1px solid #00ffff');
+} // end if(_devEnabled) — production builds skip the whole block
 
 // ── Initial-box auto-advance ──────────────────────────────────────────────────
 const IDS = ['i0','i1','i2'];

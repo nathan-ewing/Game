@@ -39,7 +39,10 @@
       "gatekeeperAssess": false
     },
     "win": {
-      "target": ["nsis", "portable"]
+      "target": [
+        { "target": "nsis",     "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ]
     },
     "linux": {
       "target": ["AppImage"],

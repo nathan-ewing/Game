@@ -4223,6 +4223,12 @@ function unlockAchievement(id) {
   saveAchievements();
   achievementToasts.push({ id, name: a.name, icon: a.icon, t: 4.5, ml: 4.5 });
   sfxLevelUp();
+  // Mirror to Steam (no-op when Steam isn't connected). Steam expects API
+  // names — by convention ACH_<UPPER_SNAKE>. Configure these on the
+  // Steamworks partner site to match.
+  if (window.steam && window.steam.unlockAchievement) {
+    try { window.steam.unlockAchievement('ACH_' + id.toUpperCase()); } catch (_) {}
+  }
   // Hardcore unlock
   if (id === 'veil_walker') {
     try { localStorage.setItem(HARDCORE_KEY, '1'); } catch(e){}
@@ -9304,6 +9310,35 @@ requestAnimationFrame(titleBg);
 // All functions live under `dev.*` and are safe to call from the DevTools
 // console (F12). Type `dev.help()` for a list. Persistent commands save to
 // localStorage; transient commands only affect the current run.
+// ═══════════════════════════════════════════════════════════════════════════
+// STEAM RICH PRESENCE — polls the game state every 2s and pushes a status
+// string to the user's Steam friends list ("Playing as Reaper · Wave 4").
+// Silently no-ops when window.steam isn't available (browser dev, non-Steam
+// launch, or Steam client not running) — setRichPresence drops the call.
+// ═══════════════════════════════════════════════════════════════════════════
+(function steamRichPresencePoll() {
+  if (typeof window === 'undefined' || !window.steam) return;
+  let lastStatus = '';
+  setInterval(() => {
+    let status = '';
+    if (mode === 'title') {
+      status = 'In Menu';
+    } else if (mode === 'play' || mode === 'paused' || mode === 'levelup') {
+      const champ = (selectedChampion && selectedChampion.name) || 'Crusader';
+      const wave  = wavesCleared + 1;
+      const prefix = mode === 'paused' ? '⏸ ' : (mode === 'levelup' ? '★ ' : '');
+      status = `${prefix}${champ} · Wave ${wave}`;
+    } else if (mode === 'dying' || mode === 'dead') {
+      const champ = (selectedChampion && selectedChampion.name) || '';
+      status = champ ? `Defeated as ${champ}` : 'Defeated';
+    }
+    if (status !== lastStatus) {
+      try { window.steam.setRichPresence('status', status); } catch (_) {}
+      lastStatus = status;
+    }
+  }, 2000);
+})();
+
 // ═══════════════════════════════════════════════════════════════════════════
 // GAMEPAD SUPPORT — Xbox / DualShock / Steam Deck via the standard Gamepad API
 //

@@ -18,9 +18,83 @@
 // main.js itself is frozen at build time. To change behavior in this file
 // (window size, hotkeys, update source) you must rebuild + reinstall the .app.
 
-const { app, BrowserWindow, Menu, globalShortcut, net } = require('electron');
+const { app, BrowserWindow, Menu, globalShortcut, net, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
+
+// ── Steam integration ───────────────────────────────────────────────────────
+// Tries to initialize the Steam API on launch. App ID lives in steam_appid.txt
+// at the project root (480 = Spacewar, Steam's public test app — swap to your
+// real App ID after Steam Direct approval).
+//
+// Every IPC handler is wrapped so a failed/missing Steam init just no-ops
+// quietly. The game runs identically whether Steam is connected or not.
+const STEAM_APP_ID = (() => {
+  try { return parseInt(fs.readFileSync(path.join(__dirname, 'steam_appid.txt'), 'utf8').trim(), 10) || 480; }
+  catch (_) { return 480; }
+})();
+
+let steam = null;          // initialized steamworks client, or null if unavailable
+let steamReady = false;
+try {
+  const steamworks = require('steamworks.js');
+  steam = steamworks.init(STEAM_APP_ID);
+  steamReady = true;
+  console.log(`[steam] initialized for AppID ${STEAM_APP_ID}, user: ${steam.localplayer.getName()}`);
+} catch (e) {
+  console.log('[steam] not available —', e.message);
+  steam = null;
+}
+
+// ── IPC handlers — all guarded by `steamReady` so they're safe no-ops ───────
+ipcMain.handle('steam:available', () => steamReady);
+ipcMain.handle('steam:user-name', () => steamReady ? steam.localplayer.getName() : '');
+
+ipcMain.on('steam:achievement-unlock', (_, apiName) => {
+  if (!steamReady || !apiName) return;
+  try { steam.achievement.activate(apiName); }
+  catch (e) { console.warn('[steam] achievement-unlock failed:', apiName, e.message); }
+});
+
+ipcMain.on('steam:achievement-clear-all', () => {
+  if (!steamReady) return;
+  // Iterates known achievements and clears each — steamworks.js doesn't have
+  // a single "clear all" call. For testing only.
+  try {
+    const names = steam.achievement.getAchievementNames?.() || [];
+    for (const n of names) steam.achievement.clear(n);
+  } catch (e) { console.warn('[steam] clear-all failed:', e.message); }
+});
+
+ipcMain.on('steam:rich-presence-set', (_, { key, value }) => {
+  if (!steamReady || !key) return;
+  try { steam.localplayer.setRichPresence(key, value == null ? '' : String(value)); }
+  catch (e) { console.warn('[steam] rich-presence failed:', key, e.message); }
+});
+
+ipcMain.on('steam:rich-presence-clear', () => {
+  if (!steamReady) return;
+  try { steam.localplayer.setRichPresence('status', ''); }
+  catch (e) { console.warn('[steam] rich-presence-clear failed:', e.message); }
+});
+
+ipcMain.handle('steam:cloud-write', (_, { filename, data }) => {
+  if (!steamReady || !filename) return false;
+  try { return !!steam.cloud.writeFile(filename, data); }
+  catch (e) { console.warn('[steam] cloud-write failed:', filename, e.message); return false; }
+});
+
+ipcMain.handle('steam:cloud-read', (_, filename) => {
+  if (!steamReady || !filename) return null;
+  try { return steam.cloud.readFile(filename); }
+  catch (e) { console.warn('[steam] cloud-read failed:', filename, e.message); return null; }
+});
+
+ipcMain.handle('steam:cloud-exists', (_, filename) => {
+  if (!steamReady || !filename) return false;
+  try { return !!steam.cloud.fileExists?.(filename); }
+  catch (_) { return false; }
+});
 
 // Disable Chromium's autoplay gesture requirement so the title-screen music
 // can start the moment the window loads, without waiting for a click or keypress.
@@ -75,7 +149,8 @@ async function createWindow() {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
-      backgroundThrottling: false
+      backgroundThrottling: false,
+      preload: path.join(__dirname, 'preload.js')
     }
   });
 

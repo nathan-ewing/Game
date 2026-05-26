@@ -714,9 +714,62 @@ h1 { animation:titleGlow 3.5s ease-in-out infinite; }
     <button class="btn-play" onclick="openChampionSelect()">PLAY</button>
     <button class="btn-ghost" onclick="showAchievements('title')">ACHIEVEMENTS</button>
     <button class="btn-ghost" onclick="showHighScores()">HIGH SCORES</button>
+    <button class="btn-ghost" onclick="showControls('title')">CONTROLS</button>
     <button class="btn-ghost" onclick="showSettings()">SETTINGS</button>
   </div>
   <div id="lifetime-stats"></div>
+</div>
+
+<!-- Controls reference — read-only, lists every keybind + gamepad mapping -->
+<div id="controls-panel" class="panel" style="display:none;max-width:560px;width:92%;max-height:88vh;overflow-y:auto">
+  <h2 style="color:#00ffff;letter-spacing:6px">CONTROLS</h2>
+  <p class="sub" style="margin-bottom:22px">Keyboard + Gamepad. Both work simultaneously.</p>
+
+  <div style="text-align:left;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px 14px;font-size:11.5px;letter-spacing:1px">
+    <div style="color:#00ffff;font-weight:bold;letter-spacing:3px;padding-bottom:4px;border-bottom:1px solid rgba(0,255,255,0.25)">ACTION</div>
+    <div style="color:#ff66c4;font-weight:bold;letter-spacing:3px;padding-bottom:4px;border-bottom:1px solid rgba(255,102,196,0.25)">KEYBOARD</div>
+    <div style="color:#ffd84a;font-weight:bold;letter-spacing:3px;padding-bottom:4px;border-bottom:1px solid rgba(255,216,74,0.25)">GAMEPAD</div>
+
+    <div style="color:#bda5d0">Move</div>
+    <div style="color:#fff">W A S D / ←↑→↓</div>
+    <div style="color:#fff">Left stick / D-pad</div>
+
+    <div style="color:#bda5d0">Fire</div>
+    <div style="color:#888">— (auto)</div>
+    <div style="color:#888">— (auto)</div>
+
+    <div style="color:#bda5d0">Pause</div>
+    <div style="color:#fff">Esc</div>
+    <div style="color:#fff">Start / B</div>
+
+    <div style="color:#bda5d0">Confirm (menus)</div>
+    <div style="color:#fff">Enter / Click</div>
+    <div style="color:#fff">A</div>
+
+    <div style="color:#bda5d0">Navigate menus</div>
+    <div style="color:#fff">Tab / Arrows</div>
+    <div style="color:#fff">Left stick / D-pad</div>
+
+    <div style="color:#bda5d0">Reroll (level-up)</div>
+    <div style="color:#fff">Click reroll btn</div>
+    <div style="color:#fff">LB / RB</div>
+
+    <div style="color:#bda5d0">Fullscreen</div>
+    <div style="color:#fff">F11</div>
+    <div style="color:#888">— (use Settings)</div>
+
+    <div style="color:#bda5d0">DevTools</div>
+    <div style="color:#fff">F12</div>
+    <div style="color:#888">—</div>
+  </div>
+
+  <div style="margin-top:24px;padding-top:18px;border-top:1px solid rgba(255,255,255,0.12)">
+    <p class="sub" style="font-size:11px;letter-spacing:2px;color:#888a">Your weapon fires automatically at the nearest enemy. Focus on positioning.</p>
+  </div>
+
+  <div style="margin-top:18px">
+    <button class="btn-ghost" onclick="closeControls()">BACK</button>
+  </div>
 </div>
 
 <div id="sound-panel" class="panel" style="display:none;max-width:460px;width:92%">
@@ -879,6 +932,7 @@ h1 { animation:titleGlow 3.5s ease-in-out infinite; }
     <button class="btn-ghost" onclick="showAchievements('pause')">ACHIEVEMENTS</button>
     <button class="btn-ghost" onclick="showSoundOptions('pause')">SOUND</button>
     <button class="btn-ghost" onclick="showHighScoresFromPause()">HIGH SCORES</button>
+    <button class="btn-ghost" onclick="showControls('pause')">CONTROLS</button>
     <button class="btn-ghost" onclick="askReturnToMenu()">MAIN MENU</button>
   </div>
   <p style="margin-top:18px;color:#666;font-size:11px;letter-spacing:2px">ESC TO RESUME</p>
@@ -963,6 +1017,9 @@ addEventListener('keydown', e => {
     // From the achievements panel
     const ap = document.getElementById('ach-panel');
     if (ap && ap.style.display !== 'none') { closeAchievements(); e.preventDefault(); return; }
+    // From the controls reference panel
+    const cpl = document.getElementById('controls-panel');
+    if (cpl && cpl.style.display !== 'none') { closeControls(); e.preventDefault(); return; }
     // From the sound options panel
     const sp = document.getElementById('sound-panel');
     if (sp && sp.style.display !== 'none') { closeSoundOptions(); e.preventDefault(); return; }
@@ -3650,6 +3707,30 @@ function showAchievements(from) {
 function closeAchievements() {
   document.getElementById('ach-panel').style.display = 'none';
   if (achReturnTo === 'pause') {
+    animatePanel(document.getElementById('pause-panel'));
+    showEquippedPanel();
+  } else {
+    animatePanel(document.getElementById('title-panel'));
+  }
+}
+
+// ── Controls panel ────────────────────────────────────────────────────────
+// Read-only reference card. Same return-to pattern as achievements:
+// remembers which menu we came from so BACK / Esc returns there.
+let controlsReturnTo = 'title';
+function showControls(from) {
+  controlsReturnTo = from || 'title';
+  if (from === 'pause') {
+    document.getElementById('pause-panel').style.display = 'none';
+    hideEquippedPanel();
+  } else {
+    document.getElementById('title-panel').style.display = 'none';
+  }
+  animatePanel(document.getElementById('controls-panel'));
+}
+function closeControls() {
+  document.getElementById('controls-panel').style.display = 'none';
+  if (controlsReturnTo === 'pause') {
     animatePanel(document.getElementById('pause-panel'));
     showEquippedPanel();
   } else {

@@ -4530,6 +4530,8 @@ function update(dt) {
   if(K['KeyS']||K['ArrowDown'])  dy+=1;
   if(K['KeyA']||K['ArrowLeft'])  dx-=1;
   if(K['KeyD']||K['ArrowRight']) dx+=1;
+  // Gamepad left stick (and D-pad — see GP.poll which folds the dpad into lx/ly)
+  if (GP.connected) { dx += GP.lx; dy += GP.ly; }
   if(dx||dy){
     const l=Math.hypot(dx,dy);
     const prevX = P.x, prevY = P.y;
@@ -9203,6 +9205,224 @@ requestAnimationFrame(titleBg);
 // All functions live under `dev.*` and are safe to call from the DevTools
 // console (F12). Type `dev.help()` for a list. Persistent commands save to
 // localStorage; transient commands only affect the current run.
+// ═══════════════════════════════════════════════════════════════════════════
+// GAMEPAD SUPPORT — Xbox / DualShock / Steam Deck via the standard Gamepad API
+//
+// In-game:
+//   Left stick / D-pad → player movement
+//   Start              → pause toggle
+//   A                  → (reserved for menu confirm — no in-game effect)
+//   B                  → pause toggle (alt; matches "B = back" Steam convention)
+//
+// In menus:
+//   Left stick / D-pad → navigate focusable elements
+//   A                  → activate (click) focused element
+//   B                  → cancel / close panel (where applicable)
+//   LB / RB            → reroll on the level-up panel
+//
+// Polling runs at 60Hz via setInterval — independent of the render loop so
+// menus work even when the rAF game-loop is paused.
+// ═══════════════════════════════════════════════════════════════════════════
+const GP = {
+  connected: false,
+  lx: 0, ly: 0,        // normalised analog input (or D-pad), with dead zone
+  buttons: [],
+  prev:    [],
+  // Per-direction repeat timing (held → fires immediately, then on a cadence)
+  dirHeld:   { up:0, down:0, left:0, right:0 },
+  dirFired:  { up:0, down:0, left:0, right:0 },
+  REPEAT_INITIAL: 0.40,
+  REPEAT_RATE:    0.16,
+  lastPollT: 0,
+};
+const GP_DZ = 0.22;
+const GP_BTN = { A:0, B:1, X:2, Y:3, LB:4, RB:5, LT:6, RT:7, BACK:8, START:9 };
+
+function gpPoll() {
+  const pads = (navigator.getGamepads ? navigator.getGamepads() : []);
+  let pad = null;
+  for (const p of pads) { if (p && p.connected) { pad = p; break; } }
+  if (!pad) { GP.connected = false; return; }
+  GP.connected = true;
+  // Analog left stick with radial dead zone
+  let lx = pad.axes[0] || 0, ly = pad.axes[1] || 0;
+  const mag = Math.hypot(lx, ly);
+  if (mag < GP_DZ) { lx = 0; ly = 0; }
+  // D-pad overrides analog if pressed (buttons 12-15 on standard layout)
+  const dU = pad.buttons[12] && pad.buttons[12].pressed;
+  const dD = pad.buttons[13] && pad.buttons[13].pressed;
+  const dL = pad.buttons[14] && pad.buttons[14].pressed;
+  const dR = pad.buttons[15] && pad.buttons[15].pressed;
+  if (dU || dD) ly = dU ? -1 : 1;
+  if (dL || dR) lx = dL ? -1 : 1;
+  GP.lx = lx; GP.ly = ly;
+  // Button state with previous-frame copy for edge detection
+  GP.prev = GP.buttons;
+  GP.buttons = pad.buttons.map(b => !!(b && b.pressed));
+}
+
+function gpPressed(idx) { return GP.buttons[idx] && !GP.prev[idx]; }
+
+// ── Directional repeat (used for menu navigation) ──────────────────────────
+function gpDirEvents(dt) {
+  const out = { up:false, down:false, left:false, right:false };
+  const tick = (name, active) => {
+    if (active) {
+      const prevHeld = GP.dirHeld[name];
+      GP.dirHeld[name] = prevHeld + dt;
+      if (prevHeld === 0) {
+        out[name] = true; // immediate trigger on press
+        GP.dirFired[name] = GP.dirHeld[name];
+      } else if (GP.dirHeld[name] - GP.dirFired[name] > (prevHeld < GP.REPEAT_INITIAL ? GP.REPEAT_INITIAL : GP.REPEAT_RATE)) {
+        out[name] = true;
+        GP.dirFired[name] = GP.dirHeld[name];
+      }
+    } else {
+      GP.dirHeld[name] = 0;
+      GP.dirFired[name] = 0;
+    }
+  };
+  tick('up',    GP.ly < -0.5);
+  tick('down',  GP.ly >  0.5);
+  tick('left',  GP.lx < -0.5);
+  tick('right', GP.lx >  0.5);
+  return out;
+}
+
+// ── Active-menu focus helpers ──────────────────────────────────────────────
+function gpActivePanel() {
+  const ids = ['levelup-panel','pause-panel','champion-panel','title-panel','gameover-panel','hs-panel'];
+  for (const id of ids) {
+    const p = document.getElementById(id);
+    if (p && getComputedStyle(p).display !== 'none' && p.offsetParent !== null) return p;
+  }
+  return null;
+}
+function gpFocusables(panel) {
+  if (!panel) return [];
+  return Array.from(panel.querySelectorAll(
+    'button:not([disabled]), [tabindex]:not([tabindex="-1"]), input, select'
+  )).filter(el => el.offsetParent !== null);
+}
+function gpMoveFocus(dir) {
+  const panel = gpActivePanel();
+  const els = gpFocusables(panel);
+  if (els.length === 0) return;
+  const cur = els.indexOf(document.activeElement);
+  let next = cur;
+  // Try spatial nav for grid-y menus first (champion select, level-up cards)
+  if (cur >= 0 && (dir === 'left' || dir === 'right')) {
+    next = (cur + (dir === 'right' ? 1 : -1) + els.length) % els.length;
+  } else if (dir === 'down') {
+    next = (cur + 1) % els.length;
+  } else if (dir === 'up') {
+    next = (cur - 1 + els.length) % els.length;
+  }
+  if (next < 0) next = 0;
+  els[next].focus();
+}
+function gpActivateFocused() {
+  const el = document.activeElement;
+  if (el && el.click && el !== document.body) el.click();
+}
+
+// ── Polling loop — drives both in-game movement and menu navigation ────────
+let _gpLastTickMs = performance.now();
+let _gpAudioPrimed = false;
+setInterval(() => {
+  const now = performance.now();
+  const dt = Math.min(0.10, (now - _gpLastTickMs) / 1000);
+  _gpLastTickMs = now;
+  gpPoll();
+  if (!GP.connected) return;
+  // Audio-context "user gesture" priming — happens once on first input
+  if (!_gpAudioPrimed && GP.buttons.some(b => b)) {
+    _gpAudioPrimed = true;
+    if (typeof initAudio === 'function') initAudio();
+    if (typeof startTitleMusic === 'function' && mode === 'title' && !musicRunning) startTitleMusic();
+  }
+  // Pause toggle (Start or B in-game)
+  if (gpPressed(GP_BTN.START) || (mode === 'play' && gpPressed(GP_BTN.B))) {
+    if (mode === 'play')        pauseGame();
+    else if (mode === 'paused') resumeGame();
+  }
+  // Menu nav only when NOT actively playing
+  if (mode !== 'play' && mode !== 'dying') {
+    const dirs = gpDirEvents(dt);
+    if (dirs.up)    gpMoveFocus('up');
+    if (dirs.down)  gpMoveFocus('down');
+    if (dirs.left)  gpMoveFocus('left');
+    if (dirs.right) gpMoveFocus('right');
+    if (gpPressed(GP_BTN.A)) gpActivateFocused();
+    // Reroll on level-up panel via LB / RB
+    if (mode === 'levelup' && (gpPressed(GP_BTN.LB) || gpPressed(GP_BTN.RB))) {
+      const btn = document.getElementById('reroll-btn');
+      if (btn && !btn.disabled) btn.click();
+    }
+  }
+}, 16);
+
+// ── Tabindex sprinkles + focus styling so HTML/canvas-rendered cards work ──
+// Set after the panels exist (DOM is parsed by the time this runs).
+(function gpAddFocusables() {
+  const style = document.createElement('style');
+  style.textContent = `
+    .champion-card[tabindex], .card[tabindex] { transition: outline 0.08s, box-shadow 0.08s; }
+    .champion-card:focus, .card:focus, .champion-card:focus-visible, .card:focus-visible {
+      outline: 3px solid #00ffff;
+      outline-offset: 3px;
+      box-shadow: 0 0 18px rgba(0,255,255,0.55), 0 0 32px rgba(0,255,255,0.30);
+    }
+    button:focus, button:focus-visible {
+      outline: 2px solid #00ffff;
+      outline-offset: 2px;
+      box-shadow: 0 0 14px rgba(0,255,255,0.5);
+    }
+  `;
+  document.head.appendChild(style);
+  // MutationObserver tags newly-rendered champion/level-up cards as focusable
+  const mo = new MutationObserver(muts => {
+    for (const m of muts) {
+      for (const n of m.addedNodes) {
+        if (n.nodeType !== 1) continue;
+        const apply = el => {
+          if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '0');
+        };
+        if (n.matches && (n.matches('.champion-card') || n.matches('.card'))) apply(n);
+        if (n.querySelectorAll) {
+          n.querySelectorAll('.champion-card, .card').forEach(apply);
+        }
+      }
+    }
+  });
+  mo.observe(document.body, { childList: true, subtree: true });
+})();
+
+// Auto-focus the first focusable element when a menu panel opens, so the
+// gamepad has somewhere to "be" without the player pressing a direction first.
+(function gpAutoFocusOnPanelOpen() {
+  const mo = new MutationObserver(muts => {
+    for (const m of muts) {
+      if (m.type === 'attributes' && m.attributeName === 'style') {
+        const el = m.target;
+        if (el.classList.contains('panel') && getComputedStyle(el).display !== 'none') {
+          // Delay a tick so contents finish rendering, then focus first child
+          setTimeout(() => {
+            const focusables = gpFocusables(el);
+            if (focusables.length && document.activeElement === document.body) {
+              focusables[0].focus();
+            }
+          }, 30);
+        }
+      }
+    }
+  });
+  // Watch every existing panel
+  document.querySelectorAll('.panel').forEach(p => {
+    mo.observe(p, { attributes: true, attributeFilter: ['style'] });
+  });
+})();
+
 window.dev = {
   help() {
     const lines = [

@@ -784,6 +784,11 @@ h1 { animation:titleGlow 3.5s ease-in-out infinite; }
       </label>
     </div>
     <p class="sub" style="font-size:10px;margin-top:10px;letter-spacing:1.5px;text-align:center;color:#776080">F11 also toggles fullscreen at any time.</p>
+    <div class="sound-row" style="margin-top:14px">
+      <label class="hardcore-chk" style="border-color:rgba(0,255,255,0.3);color:#00ffff">
+        <input id="opt-reduce-shake" type="checkbox"> REDUCE SCREEN SHAKE
+      </label>
+    </div>
   </div>
 
   <!-- ── DANGER ZONE ──────────────────────────────────────── -->
@@ -3541,6 +3546,18 @@ function showSettings() {
       fs._wired = true;
     }
   }
+  // Reduce-screen-shake accessibility toggle
+  const rs = document.getElementById('opt-reduce-shake');
+  if (rs) {
+    rs.checked = shakeMult === 0;
+    if (!rs._wired) {
+      rs.addEventListener('change', () => {
+        shakeMult = rs.checked ? 0 : 1;
+        try { localStorage.setItem('crusade_reduce_shake', rs.checked ? '1' : '0'); } catch (_) {}
+      });
+      rs._wired = true;
+    }
+  }
   document.getElementById('title-panel').style.display = 'none';
   animatePanel(document.getElementById('settings-panel'));
 }
@@ -4175,6 +4192,13 @@ let audioSettings = (function(){
 function saveAudioSettings() {
   try { localStorage.setItem(AUDIO_KEY, JSON.stringify(audioSettings)); } catch(e){}
 }
+
+// Accessibility — reduce / disable screen shake. Multiplied into the
+// camera-jitter calculation in render(). 1 = full shake, 0 = no shake.
+let shakeMult = (function(){
+  try { return localStorage.getItem('crusade_reduce_shake') === '1' ? 0 : 1; }
+  catch (_) { return 1; }
+})();
 function applyAudioSettings() {
   if (!masterGain) return;
   const mute = audioSettings.muted ? 0 : 1;
@@ -6913,8 +6937,8 @@ function render() {
   const CW=cvs.width, CH=cvs.height;
   ctx.clearRect(0,0,CW,CH);
 
-  const sx=shake?(Math.random()-.5)*shake*22:0;
-  const sy=shake?(Math.random()-.5)*shake*22:0;
+  const sx=shake?(Math.random()-.5)*shake*22*shakeMult:0;
+  const sy=shake?(Math.random()-.5)*shake*22*shakeMult:0;
   ctx.save();
   ctx.translate(sx-cam.x, sy-cam.y);
 

@@ -136,10 +136,39 @@ if (!gotLock) {
 
 let mainWindow = null;
 
+// ── Window-bounds persistence ───────────────────────────────────────────────
+// Remembers size + position + maximized state across launches so the player
+// doesn't lose their layout every time. Stored in userData/window-state.json.
+function getWindowStatePath() {
+  return path.join(app.getPath('userData'), 'window-state.json');
+}
+function loadWindowState() {
+  try {
+    const raw = fs.readFileSync(getWindowStatePath(), 'utf8');
+    const s = JSON.parse(raw);
+    // Defensive validation — bail if any field looks corrupted
+    if (typeof s.width !== 'number' || typeof s.height !== 'number') return null;
+    if (s.width < 600 || s.height < 400) return null;
+    return s;
+  } catch (_) { return null; }
+}
+function saveWindowState(win) {
+  if (!win || win.isDestroyed()) return;
+  try {
+    const state = win.isMaximized()
+      ? { ...win.getNormalBounds(), maximized: true }
+      : { ...win.getBounds(), maximized: false };
+    fs.writeFileSync(getWindowStatePath(), JSON.stringify(state));
+  } catch (_) { /* fail silently — not worth bothering the player */ }
+}
+
 async function createWindow() {
+  const saved = loadWindowState();
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 800,
+    width:    saved?.width  || 1280,
+    height:   saved?.height || 800,
+    x:        saved?.x,
+    y:        saved?.y,
     minWidth: 960,
     minHeight: 600,
     backgroundColor: '#000000',
@@ -167,13 +196,31 @@ async function createWindow() {
   }
 
   mainWindow.once('ready-to-show', () => {
+    if (saved && saved.maximized) mainWindow.maximize();
     mainWindow.show();
   });
+
+  // Save bounds whenever the user resizes/moves so we can restore them next launch.
+  // Debounce a touch to avoid hammering the disk during a drag.
+  let _saveTimer = null;
+  const scheduleSave = () => {
+    clearTimeout(_saveTimer);
+    _saveTimer = setTimeout(() => saveWindowState(mainWindow), 300);
+  };
+  mainWindow.on('resize',    scheduleSave);
+  mainWindow.on('move',      scheduleSave);
+  mainWindow.on('maximize',  scheduleSave);
+  mainWindow.on('unmaximize', scheduleSave);
 
   // External links open in the system browser, never in the game window.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     require('electron').shell.openExternal(url);
     return { action: 'deny' };
+  });
+
+  mainWindow.on('close', () => {
+    // Last-chance save before the window dies
+    saveWindowState(mainWindow);
   });
 
   mainWindow.on('closed', () => {

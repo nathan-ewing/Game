@@ -4263,7 +4263,9 @@ function drawHint(CW, CH) {
   if (!activeHint || activeHint.t <= 0) return;
   const a = Math.min(1, activeHint.t / 0.4) * Math.min(1, (activeHint.ml - activeHint.t) / 0.4);
   const alpha = Math.max(0.2, a);
-  const y = CH - 110;
+  // Sit above the bottom-row HUD (loadout panel + skill tray, ~100px tall + 14px gap)
+  // with a 10px breathing margin so the hint reads cleanly without overlap.
+  const y = CH - 160;
   ctx.save();
   ctx.font = 'bold 13px "Courier New", monospace';
   const text = activeHint.msg;

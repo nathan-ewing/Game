@@ -3542,6 +3542,7 @@ function showSettings() {
       document.addEventListener('fullscreenchange', () => {
         fs.checked = !!document.fullscreenElement;
         try { localStorage.setItem('crusade_fullscreen', fs.checked ? '1' : '0'); } catch (_) {}
+        if (typeof scheduleCloudSave === 'function') scheduleCloudSave();
       });
       fs._wired = true;
     }
@@ -3554,6 +3555,7 @@ function showSettings() {
       rs.addEventListener('change', () => {
         shakeMult = rs.checked ? 0 : 1;
         try { localStorage.setItem('crusade_reduce_shake', rs.checked ? '1' : '0'); } catch (_) {}
+        if (typeof scheduleCloudSave === 'function') scheduleCloudSave();
       });
       rs._wired = true;
     }
@@ -3589,6 +3591,14 @@ function performReset() {
   ];
   for (const k of keys) {
     try { localStorage.removeItem(k); } catch(e) {}
+  }
+  // Steam Cloud must be cleared too — otherwise the next launch pulls the
+  // pre-reset save back down and effectively undoes the reset.
+  if (typeof window !== 'undefined' && window.steam && window.steam.cloudWrite) {
+    try {
+      const empty = JSON.stringify({ version: CLOUD_SAVE_VERSION });
+      window.steam.cloudWrite(CLOUD_SAVE_FILE, empty);
+    } catch (_) {}
   }
   // Show success state, then reload after a brief moment so every in-memory
   // cache (unlockedChampions, achievements, tutSeen, lifetime stats, etc.)
@@ -4145,6 +4155,7 @@ let unlockedChampions = (function(){
 })();
 function saveChampionUnlocks() {
   try { localStorage.setItem(CHAMP_UNLOCK_KEY, JSON.stringify([...unlockedChampions])); } catch(e){}
+  if (typeof scheduleCloudSave === 'function') scheduleCloudSave();
 }
 function nextChampionFor(id) { return CHAMP_UNLOCK_CHAIN[id]; }
 function unlockReqText(targetId) {
@@ -4191,6 +4202,7 @@ let audioSettings = (function(){
 })();
 function saveAudioSettings() {
   try { localStorage.setItem(AUDIO_KEY, JSON.stringify(audioSettings)); } catch(e){}
+  if (typeof scheduleCloudSave === 'function') scheduleCloudSave();
 }
 
 // Accessibility — reduce / disable screen shake. Multiplied into the
@@ -4234,9 +4246,11 @@ function isHardcoreUnlocked() {
 }
 function saveAchievements() {
   try { localStorage.setItem(ACH_KEY, JSON.stringify([...unlockedAchievements])); } catch(e){}
+  if (typeof scheduleCloudSave === 'function') scheduleCloudSave();
 }
 function saveChampionsTried() {
   try { localStorage.setItem(CHAMP_KEY, JSON.stringify([...championsTried])); } catch(e){}
+  if (typeof scheduleCloudSave === 'function') scheduleCloudSave();
 }
 let achievementToasts = []; // active on-screen unlock banners
 function unlockAchievement(id) {
@@ -4256,6 +4270,7 @@ function unlockAchievement(id) {
   // Hardcore unlock
   if (id === 'veil_walker') {
     try { localStorage.setItem(HARDCORE_KEY, '1'); } catch(e){}
+    if (typeof scheduleCloudSave === 'function') scheduleCloudSave();
   }
 }
 function checkAchievements() {
@@ -4321,6 +4336,7 @@ function triggerHint(id, msg, duration) {
   if (tutSeen.has(id)) return;
   tutSeen.add(id);
   try { localStorage.setItem(TUT_KEY, JSON.stringify([...tutSeen])); } catch(e){}
+  if (typeof scheduleCloudSave === 'function') scheduleCloudSave();
   activeHint = { msg, t: duration || 4.5, ml: duration || 4.5 };
 }
 function drawHint(CW, CH) {
@@ -4357,7 +4373,129 @@ function loadStats() {
 }
 function saveStats(s) {
   try { localStorage.setItem(STATS_KEY, JSON.stringify(s)); } catch(e) {}
+  scheduleCloudSave();
 }
+
+// ── Steam Cloud sync ────────────────────────────────────────────────────────
+// Consolidates the ~10 localStorage keys above into a single JSON file that's
+// pushed to Steam Cloud whenever a save fires. Cross-device sync (PC↔Deck)
+// happens via Steam's depot system automatically. When Steam isn't available
+// (browser dev, non-Steam launch, Steam client off), every call is a no-op
+// and localStorage continues as the sole source of truth — no regressions.
+const CLOUD_SAVE_FILE = 'save.json';
+const CLOUD_SAVE_VERSION = 1;
+
+function buildCloudPayload() {
+  return {
+    version:      CLOUD_SAVE_VERSION,
+    champUnlocks: localStorage.getItem(CHAMP_UNLOCK_KEY)        || '["crusader"]',
+    champsTried:  localStorage.getItem(CHAMP_KEY)               || '[]',
+    achievements: localStorage.getItem(ACH_KEY)                 || '[]',
+    hardcore:     localStorage.getItem(HARDCORE_KEY)            || '0',
+    stats:        localStorage.getItem(STATS_KEY)               || '{}',
+    tutorial:     localStorage.getItem(TUT_KEY)                 || '[]',
+    highScores:   localStorage.getItem('laststand_hs')          || '[]',
+    audio:        localStorage.getItem(AUDIO_KEY)               || '{}',
+    fullscreen:   localStorage.getItem('crusade_fullscreen')    || '0',
+    reduceShake:  localStorage.getItem('crusade_reduce_shake')  || '0',
+  };
+}
+
+function applyCloudPayload(p) {
+  if (!p || p.version !== CLOUD_SAVE_VERSION) return false;
+  // String fields are stored as-is so writing them back is just a passthrough.
+  try {
+    if (p.champUnlocks) localStorage.setItem(CHAMP_UNLOCK_KEY, p.champUnlocks);
+    if (p.champsTried)  localStorage.setItem(CHAMP_KEY, p.champsTried);
+    if (p.achievements) localStorage.setItem(ACH_KEY, p.achievements);
+    if (p.hardcore === '1') localStorage.setItem(HARDCORE_KEY, '1');
+    if (p.stats)        localStorage.setItem(STATS_KEY, p.stats);
+    if (p.tutorial)     localStorage.setItem(TUT_KEY, p.tutorial);
+    if (p.highScores)   localStorage.setItem('laststand_hs', p.highScores);
+    if (p.audio)        localStorage.setItem(AUDIO_KEY, p.audio);
+    if (p.fullscreen)   localStorage.setItem('crusade_fullscreen', p.fullscreen);
+    if (p.reduceShake)  localStorage.setItem('crusade_reduce_shake', p.reduceShake);
+    return true;
+  } catch (_) { return false; }
+}
+
+// After replacing localStorage from cloud, the long-lived in-memory Set/Map
+// state needs to be re-derived. Called once after cloud load completes.
+function reloadInMemoryFromLocalStorage() {
+  try {
+    unlockedChampions = new Set(JSON.parse(localStorage.getItem(CHAMP_UNLOCK_KEY) || '["crusader"]'));
+    unlockedChampions.add('crusader'); // always-available guarantee
+  } catch (_) {}
+  try { unlockedAchievements = new Set(JSON.parse(localStorage.getItem(ACH_KEY) || '[]')); } catch (_) {}
+  try { championsTried       = new Set(JSON.parse(localStorage.getItem(CHAMP_KEY) || '[]')); } catch (_) {}
+  try { tutSeen              = new Set(JSON.parse(localStorage.getItem(TUT_KEY) || '[]')); } catch (_) {}
+  try {
+    const a = JSON.parse(localStorage.getItem(AUDIO_KEY) || '{}');
+    if (a && typeof a === 'object') {
+      audioSettings.master = typeof a.master === 'number' ? a.master : 1.0;
+      audioSettings.music  = typeof a.music  === 'number' ? a.music  : 0.85;
+      audioSettings.sfx    = typeof a.sfx    === 'number' ? a.sfx    : 1.0;
+      audioSettings.muted  = !!a.muted;
+      if (typeof applyAudioSettings === 'function') applyAudioSettings();
+    }
+  } catch (_) {}
+  try { shakeMult = localStorage.getItem('crusade_reduce_shake') === '1' ? 0 : 1; } catch (_) {}
+  if (typeof renderLifetimeStats === 'function') {
+    try { renderLifetimeStats(); } catch (_) {}
+  }
+}
+
+let _cloudDirty = false;
+let _cloudTimer = null;
+function scheduleCloudSave() {
+  // Bail fast if there's no Steam bridge — keeps a no-op cheap (most
+  // save-site calls in non-Steam runs).
+  if (typeof window === 'undefined' || !window.steam) return;
+  _cloudDirty = true;
+  if (_cloudTimer) return;
+  _cloudTimer = setTimeout(async () => {
+    _cloudTimer = null;
+    if (!_cloudDirty) return;
+    _cloudDirty = false;
+    try {
+      const available = await window.steam.isAvailable();
+      if (!available) return;
+      const json = JSON.stringify(buildCloudPayload());
+      await window.steam.cloudWrite(CLOUD_SAVE_FILE, json);
+      console.log('[cloud] saved', json.length, 'bytes');
+    } catch (e) {
+      console.warn('[cloud] save failed:', e.message || e);
+    }
+  }, 2000);
+}
+
+// Pull cloud data on launch, replace localStorage, refresh in-memory state.
+// Best-effort — failure just leaves the local state in place.
+(async function syncCloudOnLaunch() {
+  if (typeof window === 'undefined' || !window.steam) return;
+  try {
+    const available = await window.steam.isAvailable();
+    if (!available) return;
+    const exists = await window.steam.cloudExists(CLOUD_SAVE_FILE);
+    if (!exists) {
+      // First-time-on-Steam: seed the cloud from current localStorage state
+      const json = JSON.stringify(buildCloudPayload());
+      await window.steam.cloudWrite(CLOUD_SAVE_FILE, json);
+      console.log('[cloud] seeded initial save (' + json.length + ' bytes)');
+      return;
+    }
+    const raw = await window.steam.cloudRead(CLOUD_SAVE_FILE);
+    if (!raw) return;
+    const parsed = (typeof raw === 'string') ? JSON.parse(raw) : raw;
+    if (applyCloudPayload(parsed)) {
+      reloadInMemoryFromLocalStorage();
+      console.log('[cloud] loaded cloud save');
+    }
+  } catch (e) {
+    console.warn('[cloud] launch sync failed:', e.message || e);
+  }
+})();
+
 function recordRunStats() {
   const s = loadStats();
   s.totalRuns += 1;
@@ -4552,6 +4690,7 @@ function loadScores() {
 }
 function saveScores(arr) {
   try { localStorage.setItem('laststand_hs', JSON.stringify(arr)); } catch(e) {}
+  if (typeof scheduleCloudSave === 'function') scheduleCloudSave();
 }
 
 // (stats block moved above renderLifetimeStats — see top of file)

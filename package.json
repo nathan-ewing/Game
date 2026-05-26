@@ -14,9 +14,11 @@
     "dist:win": "electron-builder --win",
     "dist:linux": "electron-builder --linux",
     "_dist_steam_note": "Before running `npm run dist:steam`, flip STEAM_BUILD=true at the top of main.js, then flip back to false after.",
-    "dist:steam": "electron-builder --mac --win"
+    "dist:steam": "electron-builder --mac --win",
+    "icons:steam": "node scripts/generate-steam-icons.js"
   },
   "devDependencies": {
+    "@napi-rs/canvas": "^1.0.0",
     "electron": "^33.0.0",
     "electron-builder": "^25.1.8"
   },
@@ -31,7 +33,10 @@
       "steam_appid.txt"
     ],
     "extraResources": [
-      { "from": "node_modules/steamworks.js/dist", "to": "../node_modules/steamworks.js/dist" }
+      {
+        "from": "node_modules/steamworks.js/dist",
+        "to": "../node_modules/steamworks.js/dist"
+      }
     ],
     "directories": {
       "output": "dist"

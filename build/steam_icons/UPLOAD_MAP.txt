@@ -1,0 +1,24 @@
+STEAMWORKS ACHIEVEMENT ICON UPLOAD MAP
+========================================
+
+For each row on the Steamworks partner page (Stats & Achievements):
+
+  API Name             →  Icon (unlocked)       →  Icon (locked)
+  -------------------     -------------------      -------------------
+  ACH_FIRST_STEPS         first_steps.jpg          first_steps_gray.jpg
+  ACH_FIRST_SKILL         first_skill.jpg          first_skill_gray.jpg
+  ACH_FIRST_BOSS          first_boss.jpg           first_boss_gray.jpg
+  ACH_WAVE_3              wave_3.jpg               wave_3_gray.jpg
+  ACH_WAVE_5              wave_5.jpg               wave_5_gray.jpg
+  ACH_VEIL_WALKER         veil_walker.jpg          veil_walker_gray.jpg
+  ACH_WAVE_10             wave_10.jpg              wave_10_gray.jpg
+  ACH_VANQ_100            vanq_100.jpg             vanq_100_gray.jpg
+  ACH_VANQ_500            vanq_500.jpg             vanq_500_gray.jpg
+  ACH_COMBO_25            combo_25.jpg             combo_25_gray.jpg
+  ACH_COMBO_50            combo_50.jpg             combo_50_gray.jpg
+  ACH_LV_25               lv_25.jpg                lv_25_gray.jpg
+  ACH_ALL_CHAMPS          all_champs.jpg           all_champs_gray.jpg
+  ACH_SURVIVE_15          survive_15.jpg           survive_15_gray.jpg
+
+Regenerate any time with:  npm run icons:steam
+Source script:             scripts/generate-steam-icons.js

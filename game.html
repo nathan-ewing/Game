@@ -863,9 +863,23 @@ h1 { animation:titleGlow 3.5s ease-in-out infinite; }
     <button class="btn-ghost" onclick="showAchievements('pause')">ACHIEVEMENTS</button>
     <button class="btn-ghost" onclick="showSoundOptions('pause')">SOUND</button>
     <button class="btn-ghost" onclick="showHighScoresFromPause()">HIGH SCORES</button>
-    <button class="btn-ghost" onclick="returnToMenu()">MAIN MENU</button>
+    <button class="btn-ghost" onclick="askReturnToMenu()">MAIN MENU</button>
   </div>
   <p style="margin-top:18px;color:#666;font-size:11px;letter-spacing:2px">ESC TO RESUME</p>
+</div>
+
+<!-- Confirm dialog shown when the player clicks MAIN MENU mid-run.
+     Layered on top of the pause panel with a higher z-index. -->
+<div id="confirm-quit-panel" class="panel" style="display:none;max-width:380px;z-index:200">
+  <h2 style="color:#ff66c4;letter-spacing:4px">QUIT RUN?</h2>
+  <p class="sub" style="margin-bottom:22px;color:#ddc">Your current run will be lost.</p>
+  <div class="title-btns" style="gap:10px">
+    <button class="btn-play" id="confirm-quit-yes"
+            style="background:linear-gradient(135deg,#ff0080,#a00050);border-color:#ff0080"
+            onclick="confirmReturnToMenu()">YES, QUIT</button>
+    <button class="btn-ghost" id="confirm-quit-no"
+            onclick="cancelReturnToMenu()">KEEP PLAYING</button>
+  </div>
 </div>
 
 <div id="levelup-panel" class="panel">
@@ -4417,11 +4431,41 @@ function resumeGame() {
   requestAnimationFrame(loop);
 }
 
+// Confirm-quit modal — only used from the pause panel (mid-run safety).
+// The game-over screen's MAIN MENU button calls returnToMenu() directly
+// since the run is already over there.
+function askReturnToMenu() {
+  const cp = document.getElementById('confirm-quit-panel');
+  animatePanel(cp);
+  // Auto-focus the "KEEP PLAYING" button so an accidental Enter / A press
+  // doesn't quit the run.
+  setTimeout(() => {
+    const no = document.getElementById('confirm-quit-no');
+    if (no) no.focus();
+  }, 40);
+}
+function cancelReturnToMenu() {
+  document.getElementById('confirm-quit-panel').style.display = 'none';
+  // Pause panel is still visible behind; give it focus so gamepad navigation
+  // lands somewhere sensible.
+  const pp = document.getElementById('pause-panel');
+  if (pp) {
+    const firstBtn = pp.querySelector('button');
+    if (firstBtn) firstBtn.focus();
+  }
+}
+function confirmReturnToMenu() {
+  document.getElementById('confirm-quit-panel').style.display = 'none';
+  returnToMenu();
+}
+
 function returnToMenu() {
   document.getElementById('pause-panel').style.display = 'none';
   document.getElementById('hs-panel').style.display = 'none';
   document.getElementById('levelup-panel').style.display = 'none';
   document.getElementById('gameover-panel').style.display = 'none';
+  const cq = document.getElementById('confirm-quit-panel');
+  if (cq) cq.style.display = 'none';
   const cp = document.getElementById('champion-panel');
   if (cp) cp.style.display = 'none';
   hideEquippedPanel();

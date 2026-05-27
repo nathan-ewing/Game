@@ -216,6 +216,16 @@ h2 { font-size:28px; margin-bottom:6px; color:#ff0080;
   text-shadow:0 0 6px rgba(255,234,0,0.7);
   flex-shrink:0;
 }
+/* MAX badge — shown when a skill stack hits its hard cap. Uses the hardcore
+   hot-pink so it pops against the cyan chip border and reads as "this row
+   is done, spend your next pick elsewhere." */
+.chosen-chip .ck-max {
+  color:#ff66c4; font-size:10px; letter-spacing:1.5px;
+  padding:2px 6px; border:1px solid rgba(255,102,196,0.55);
+  border-radius:3px;
+  text-shadow:0 0 6px rgba(255,0,128,0.55);
+  background:rgba(255,0,128,0.08);
+}
 
 /* Hide on small screens so it doesn't crowd the level-up panel */
 @media (max-width:900px) {
@@ -1679,17 +1689,25 @@ function pickUps(n=3) {
   //   3. UNCAPPED_SKILLS — unlimited if listed.
   //   4. Regeneration — 3.
   //   5. Default — 5.
-  const champCaps = (selectedChampion && selectedChampion.skillCaps) || {};
   pool = pool.filter(u => {
-    let cap;
-    if (champCaps[u.n] !== undefined)   cap = champCaps[u.n];
-    else if (HARD_CAPS.has(u.n))        cap = HARD_CAPS.get(u.n);
-    else if (UNCAPPED_SKILLS.has(u.n))  return true;
-    else if (u.n === 'Regeneration')    cap = 3;
-    else                                cap = 5;
+    const cap = getSkillCap(u.n);
+    if (cap === Infinity) return true;
     return (skillCounts.get(u.n) || 0) < cap;
   });
   return [...pool].sort(()=>Math.random()-.5).slice(0, Math.min(n, pool.length));
+}
+
+// Returns the stack cap for a skill, applying the same priority order the
+// level-up filter uses. Returns Infinity if the skill is uncapped.
+// Single source of truth so the pause-panel MAX badge and the filter never
+// drift out of sync.
+function getSkillCap(name) {
+  const champCaps = (selectedChampion && selectedChampion.skillCaps) || {};
+  if (champCaps[name] !== undefined)   return champCaps[name];
+  if (HARD_CAPS.has(name))             return HARD_CAPS.get(name);
+  if (UNCAPPED_SKILLS.has(name))       return Infinity;
+  if (name === 'Regeneration')         return 3;
+  return 5;
 }
 
 // ── Skill icons ─────────────────────────────────────────────────────────────
@@ -3413,10 +3431,17 @@ function renderChosenSkillsList() {
     const chip = document.createElement('div');
     chip.className = 'chosen-chip';
     chip.title = displayName;
+    // MAX badge takes priority over the count — once a skill is at its cap,
+    // showing "×5" is less useful than telling the player "this slot is done."
+    const cap = getSkillCap(name);
+    const atMax = cap !== Infinity && cnt >= cap;
+    let badge = '';
+    if (atMax)       badge = `<span class="ck-mult ck-max">MAX</span>`;
+    else if (cnt > 1) badge = `<span class="ck-mult">×${cnt}</span>`;
     chip.innerHTML =
       `<img src="${icon}" alt="">`+
       `<span class="ck-name">${displayName}</span>`+
-      (cnt > 1 ? `<span class="ck-mult">×${cnt}</span>` : '');
+      badge;
     list.appendChild(chip);
   }
 }

@@ -109,6 +109,32 @@ h2 { font-size:28px; margin-bottom:6px; color:#ff0080;
   text-shadow:0 0 8px rgba(255,0,128,0.6);
   margin-bottom:18px;
 }
+/* "Killed by X" line — color comes from the source's accent (red meteor,
+   pink boss, gold sentinel) so the cause of death reads at a glance. */
+.killed-by {
+  font-size:11px; letter-spacing:4px;
+  margin: 4px 0 18px;
+}
+/* "NEW PERSONAL BEST" celebration banner — shown ONLY when this run beat
+   the previous bestScore. The pulse animation grabs the eye on death so
+   the milestone actually lands before the player reaches for "Play Again". */
+.new-best-banner {
+  display:inline-block;
+  margin: 0 auto 14px;
+  padding: 8px 22px;
+  font-size: 13px; letter-spacing: 5px; font-weight: bold;
+  color: #ffea00;
+  border: 1.5px solid #ffea00;
+  border-radius: 4px;
+  background: rgba(255,234,0,0.08);
+  text-shadow: 0 0 10px rgba(255,234,0,0.9);
+  box-shadow: 0 0 22px rgba(255,234,0,0.45);
+  animation: newBestPulse 1.4s ease-in-out infinite;
+}
+@keyframes newBestPulse {
+  0%, 100% { box-shadow: 0 0 22px rgba(255,234,0,0.45); }
+  50%      { box-shadow: 0 0 32px rgba(255,234,0,0.85); }
+}
 .go-grid {
   display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px 18px;
   margin:6px 4px 14px;
@@ -466,29 +492,38 @@ h2 { font-size:28px; margin-bottom:6px; color:#ff0080;
 }
 
 .btn-reroll {
-  background:transparent;
+  background:rgba(0,255,255,0.05);
   color:#00ffff;
-  border:1.5px solid rgba(0,255,255,0.45);
-  padding:9px 28px; font-size:12px;
+  border:2px solid rgba(0,255,255,0.7);
+  padding:12px 36px; font-size:14px;
   font-family:inherit; font-weight:bold;
-  letter-spacing:3px; border-radius:4px;
+  letter-spacing:4px; border-radius:4px;
   cursor:pointer;
   transition: all .14s;
-  text-shadow:0 0 8px rgba(0,255,255,0.5);
-  display:inline-flex; align-items:center; gap:10px;
+  text-shadow:0 0 10px rgba(0,255,255,0.75);
+  box-shadow:0 0 14px rgba(0,255,255,0.25);
+  display:inline-flex; align-items:center; gap:12px;
+  /* Subtle pulse so first-time players notice the button exists.
+     Stops on hover/active so the interaction stays crisp. */
+  animation: rerollPulse 2.4s ease-in-out infinite;
+}
+@keyframes rerollPulse {
+  0%, 100% { box-shadow: 0 0 14px rgba(0,255,255,0.25); }
+  50%      { box-shadow: 0 0 22px rgba(0,255,255,0.55); }
 }
 .btn-reroll:hover {
-  background:rgba(0,255,255,0.08);
+  background:rgba(0,255,255,0.13);
   border-color:#00ffff;
-  box-shadow:0 0 18px rgba(0,255,255,0.4);
+  box-shadow:0 0 26px rgba(0,255,255,0.6);
+  animation: none;
 }
 .btn-reroll:active { transform:translateY(1px); }
 .btn-reroll .reroll-count {
-  font-size:10px; letter-spacing:2px;
+  font-size:12px; letter-spacing:2px;
   color:#ff66c4; text-shadow:0 0 6px rgba(255,0,128,0.5);
-  padding:2px 8px; border-radius:3px;
-  background:rgba(255,0,128,0.08);
-  border:1px solid rgba(255,0,128,0.25);
+  padding:3px 10px; border-radius:3px;
+  background:rgba(255,0,128,0.10);
+  border:1px solid rgba(255,0,128,0.35);
 }
 .btn-reroll.btn-disabled,
 .btn-reroll:disabled {
@@ -975,6 +1010,14 @@ h1 { animation:titleGlow 3.5s ease-in-out infinite; }
 <div id="levelup-panel" class="panel">
   <h2 style="color:#fa0">LEVEL UP</h2>
   <p class="sub" style="margin-bottom:12px">Choose one upgrade</p>
+  <!-- First-run-only inline tutorial. Visible the first time a player ever
+       hits the level-up panel, then permanently hidden via the tutSeen set
+       (persisted to localStorage + Steam Cloud). -->
+  <div id="lu-tutorial" style="display:none;margin:-4px 0 14px;padding:10px 14px;border:1px solid rgba(0,255,255,0.32);border-radius:4px;background:rgba(0,255,255,0.05);font-size:11px;letter-spacing:1.5px;line-height:1.6;color:#bda5d0">
+    <span style="color:#00ffff">TIP:</span> Click a card to take that upgrade.
+    Hit <b style="color:#00ffff">REROLL</b> for three different choices.
+    Skills stack — picking the same one again makes it stronger.
+  </div>
   <div id="up-list"></div>
   <div style="margin-top:14px;display:flex;justify-content:center">
     <button id="reroll-btn" class="btn-reroll" onclick="rerollLevelUp()">↻ REROLL  <span class="reroll-count">2 / 2</span></button>
@@ -999,6 +1042,8 @@ h1 { animation:titleGlow 3.5s ease-in-out infinite; }
   </div>
   <div style="display:flex;flex-direction:column;gap:10px;align-items:center">
     <button class="btn" id="submit-btn" onclick="submitScore()">SUBMIT SCORE</button>
+    <!-- Fast-restart path — skips leaderboard entry. Same champion, same flow. -->
+    <button class="btn-ghost" id="quick-restart-btn" style="width:auto;padding:10px 32px" onclick="startGame()">↻ PLAY AGAIN</button>
     <button class="btn-ghost" id="skip-menu-btn" style="width:auto;padding:10px 32px" onclick="returnToMenu()">MAIN MENU</button>
   </div>
 
@@ -1073,6 +1118,11 @@ let treasureChest = null;            // { x, y, opened, bobPhase, life }
 let massSpawnState = null;           // { remaining, nextT }
 let soulStormT = 0;                  // seconds remaining of Soul Storm (2× souls / 2× damage taken)
 const SOUL_STORM_DURATION = 12;
+// Last source to land damage on the player. Captured at every P.hp -= site
+// so the death screen can tell the player "Killed by SENTINEL" / "Crushed
+// by a Meteor" / "Overwhelmed by the horde" — instead of dying with no
+// context. Reset on every new run.
+let lastDamageSource = null;
 
 function startMeteorShower() {
   meteorState = { remaining: 9, nextT: 0.4, active: [] };
@@ -1224,6 +1274,7 @@ function updateWaveEvents(dt) {
             const stormMul = (soulStormT > 0) ? 2 : 1;
             const shieldMul = Math.max(0.4, 1 - 0.08 * (P.shield || 0));
             P.hp -= 40 * waveDmgMult() * stormMul * shieldMul;
+            lastDamageSource = { label: 'Crushed by a Meteor', color: '#ff4422' };
             P.inv = 0.7;
             shake = 0.6;
             glitchT = GLITCH_DURATION;
@@ -2349,6 +2400,7 @@ function startGame() {
   massSpawnState = null;
   soulStormT = 0;
   eventBanners = [];
+  lastDamageSource = null;
   wave3UnlockChecked = false;
   generateObstacles();
   chosenSkills = new Set();
@@ -2908,6 +2960,9 @@ function bossExecuteAttack(e) {
         vy: Math.sin(ang) * speed,
         r: 9, dmg: Math.round(e.dmg * 0.55),
         life: 4.5, col: e.col,
+        // Tag the shot with its source boss so the death-screen "Killed by"
+        // line can name the actual culprit instead of saying "a projectile".
+        srcName: e.bossName || 'a boss projectile',
       });
     }
   } else if (e.attackKind === 'summon') {
@@ -3320,6 +3375,19 @@ function showLevelUp() {
   const panel=document.getElementById('levelup-panel');
   renderLevelUpChoices();
   updateRerollButton();
+  // First-time tutorial — visible exactly once, then marked seen.
+  // Reuses the tutSeen set so it survives reloads and syncs via Cloud.
+  const tutEl = document.getElementById('lu-tutorial');
+  if (tutEl) {
+    if (!tutSeen.has('first_levelup')) {
+      tutEl.style.display = 'block';
+      tutSeen.add('first_levelup');
+      try { localStorage.setItem(TUT_KEY, JSON.stringify([...tutSeen])); } catch(_) {}
+      if (typeof scheduleCloudSave === 'function') scheduleCloudSave();
+    } else {
+      tutEl.style.display = 'none';
+    }
+  }
   panel.style.display='block';
   showEquippedPanel();
 }
@@ -4976,16 +5044,26 @@ function die() {
 
 function showGameOverPanel() {
   mode = 'dead';
+  // Grab the previous best BEFORE recordRunStats() mutates it — the
+  // "NEW PERSONAL BEST" banner needs to compare against the pre-run value.
+  const prevBest = loadStats().bestScore || 0;
   // Save lifetime stats once per run
   recordRunStats();
   const mins=Math.floor(gt/60), secs=Math.floor(gt%60).toString().padStart(2,'0');
   const rank = getRankTitle(gt, wavesCleared);
   // Score breakdown
   const championName = (selectedChampion && selectedChampion.name) || '';
+  const isNewBest = runScore > 0 && runScore > prevBest;
+  // "Killed by" line — falls back to a generic message if no damage source
+  // was tracked (e.g., if death came from an edge-case we didn't cover).
+  const ds = lastDamageSource || { label: 'Your crusade ends', color: '#ff66c4' };
   document.getElementById('go-stats').innerHTML =
+    (isNewBest
+      ? `<div class="new-best-banner">★ NEW PERSONAL BEST ★</div>`
+      : '')+
     `<div class="rank-title">${rank}</div>`+
     (championName ? `<div class="rank-champion">${championName}</div>` : '')+
-    `<div class="rank-sub">YOUR CRUSADE ENDS</div>`+
+    `<div class="killed-by" style="color:${ds.color};text-shadow:0 0 10px ${ds.color}88">${ds.label.toUpperCase()}</div>`+
     `<div class="go-grid">`+
       `<div class="go-cell"><div class="go-label">SCORE</div><div class="go-value go-score">${runScore.toLocaleString()}</div></div>`+
       `<div class="go-cell"><div class="go-label">TIME</div><div class="go-value">${mins}:${secs}</div></div>`+
@@ -5321,6 +5399,14 @@ function update(dt) {
       const stormMul = (soulStormT > 0) ? 2 : 1;
       const shieldMul = Math.max(0.4, 1 - 0.08 * (P.shield || 0));
       P.hp -= e.dmg * waveDmgMult() * stormMul * shieldMul;
+      // Capture for the death screen. Bosses get a named line; regular
+      // mobs are anonymized to "Overwhelmed by the horde" — players don't
+      // need to know which specific shape touched them last.
+      if (e.isBoss && e.bossName) {
+        lastDamageSource = { label: 'Killed by ' + e.bossName, color: e.col || '#ff66c4' };
+      } else {
+        lastDamageSource = { label: 'Overwhelmed by the horde', color: '#ff4444' };
+      }
       P.inv=0.65; shake=0.45;
       glitchT = GLITCH_DURATION; // CRT chromatic-shift overlay flash
       burst(P.x,P.y,'#f44',8,80,0.4);
@@ -5339,6 +5425,7 @@ function update(dt) {
       const stormMul = (soulStormT > 0) ? 2 : 1;
       const shieldMul = Math.max(0.4, 1 - 0.08 * (P.shield || 0));
       P.hp -= s.dmg * waveDmgMult() * stormMul * shieldMul;
+      lastDamageSource = { label: 'Killed by ' + (s.srcName || 'a boss projectile'), color: s.col || '#ff66c4' };
       P.inv = 0.55; shake = 0.35;
       glitchT = GLITCH_DURATION;
       burst(P.x, P.y, s.col, 6, 70, 0.35);

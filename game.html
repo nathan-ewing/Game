@@ -1076,15 +1076,15 @@ const SOUL_STORM_DURATION = 12;
 
 function startMeteorShower() {
   meteorState = { remaining: 9, nextT: 0.4, active: [] };
-  triggerHint('meteor_event', '⚠ METEOR SHOWER — DODGE THE RED ZONES');
+  announceEvent('meteor');
 }
 function startMassSpawn() {
   massSpawnState = { remaining: 28, nextT: 0.15 };
-  triggerHint('mass_event', '⚠ MASS SPAWN — HORDE INCOMING (souls drop 1.5×)');
+  announceEvent('mass');
 }
 function startSoulStorm() {
   soulStormT = SOUL_STORM_DURATION;
-  triggerHint('storm_event', '✦ SOUL STORM — 2× SOULS, but you take 2× DAMAGE');
+  announceEvent('storm');
 }
 function startMiniBoss() {
   // Spawn at a random screen edge so it has to close on the player
@@ -1110,7 +1110,7 @@ function startMiniBoss() {
     chargeFromX:0, chargeFromY:0, chargeToX:0, chargeToY:0,
   });
   shake = 0.4; flashAlpha = 0.5;
-  triggerHint('miniboss_event', '⚔ A SENTINEL has appeared — defeat it for big loot');
+  announceEvent('miniboss');
   sfxBossSpawn();
 }
 function startTreasureCache() {
@@ -1123,7 +1123,7 @@ function startTreasureCache() {
     if (ok) { cx = x; cy = y; break; }
   }
   treasureChest = { x: cx, y: cy, opened: false, bobPhase: 0, life: 45 };
-  triggerHint('cache_event', '✦ TREASURE CACHE appeared somewhere on the map');
+  announceEvent('cache');
 }
 
 function maybeTriggerWaveEvent() {
@@ -2348,6 +2348,7 @@ function startGame() {
   treasureChest = null;
   massSpawnState = null;
   soulStormT = 0;
+  eventBanners = [];
   wave3UnlockChecked = false;
   generateObstacles();
   chosenSkills = new Set();
@@ -4471,6 +4472,86 @@ function drawAchievementToasts(CW, CH) {
   ctx.restore();
 }
 
+// ── Mid-wave event banners ─────────────────────────────────────────────────
+// Different from tutorial hints below: hints are one-shot ("teach you once,
+// then never again"). Event banners ALWAYS fire — every time a Meteor
+// Shower, Soul Storm, Mass Spawn, Mini-Boss, or Treasure Cache triggers,
+// the player needs a "what just happened" callout, not just on their first
+// playthrough. That's the whole point of the announcement.
+const EVENT_INFO = {
+  meteor:   { title:'METEOR SHOWER',  sub:'DODGE THE RED ZONES',           color:'#ff3344', glyph:'☄' },
+  mass:     { title:'MASS SPAWN',     sub:'HORDE INCOMING · SOULS 1.5×',   color:'#ff66c4', glyph:'✕' },
+  storm:    { title:'SOUL STORM',     sub:'2× SOULS · 2× DAMAGE TAKEN',    color:'#ffea00', glyph:'✦' },
+  miniboss: { title:'SENTINEL',       sub:'DEFEAT IT FOR BIG LOOT',        color:'#ffb800', glyph:'⚔' },
+  cache:    { title:'TREASURE CACHE', sub:'FIND IT BEFORE IT VANISHES',    color:'#00ffff', glyph:'✦' },
+};
+let eventBanners = []; // queue — newest event sits on top of older ones
+function announceEvent(key) {
+  const info = EVENT_INFO[key];
+  if (!info) return;
+  // Cap the queue — if 3 events overlap somehow, the oldest gets bumped so
+  // the player always sees the most-recent announcement at the front.
+  eventBanners.unshift({ ...info, t: 3.6, ml: 3.6 });
+  if (eventBanners.length > 3) eventBanners.length = 3;
+  // Audio cue — same level-up sting we use for unlocks. Tells the player
+  // "look up at the banner" without inventing a new sound.
+  try { sfxLevelUp(); } catch (_) {}
+}
+function updateEventBanners(dt) {
+  for (let i = eventBanners.length - 1; i >= 0; i--) {
+    eventBanners[i].t -= dt;
+    if (eventBanners[i].t <= 0) eventBanners.splice(i, 1);
+  }
+}
+function drawEventBanners(CW, CH) {
+  if (!eventBanners.length) return;
+  ctx.save();
+  // Only the front banner gets full prominence; older ones fade behind it.
+  for (let i = 0; i < eventBanners.length; i++) {
+    const b = eventBanners[i];
+    // Fade in over 0.25s, hold, fade out over 0.5s.
+    const fadeIn  = Math.min(1, (b.ml - b.t) / 0.25);
+    const fadeOut = Math.min(1, b.t / 0.5);
+    const alpha   = Math.max(0, Math.min(1, fadeIn * fadeOut));
+    if (alpha <= 0) continue;
+    // Slide down from y=70 to y=140 during fade-in for a satisfying drop.
+    const slide = 1 - Math.pow(1 - fadeIn, 3);   // ease-out cubic
+    const y     = 70 + slide * 70 + i * 6;       // older banners offset down a hair
+    const w     = 500;
+    const h     = 78;
+    const x     = (CW - w) / 2;
+    // Backdrop
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle   = 'rgba(8,0,18,0.86)';
+    roundRect(x, y, w, h, 4); ctx.fill();
+    // Color border + glow
+    ctx.shadowColor = b.color;
+    ctx.shadowBlur  = 18;
+    ctx.strokeStyle = b.color;
+    ctx.lineWidth   = 1.8;
+    ctx.stroke();
+    ctx.shadowBlur  = 0;
+    // Glyph on the left
+    ctx.font         = 'bold 38px "Courier New", monospace';
+    ctx.fillStyle    = b.color;
+    ctx.textAlign    = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor  = b.color;
+    ctx.shadowBlur   = 12;
+    ctx.fillText(b.glyph, x + 22, y + h/2);
+    ctx.shadowBlur   = 0;
+    // Title + subtitle stacked to the right of the glyph
+    ctx.font      = 'bold 22px "Courier New", monospace';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(b.title, x + 72, y + 30);
+    ctx.font      = 'bold 12px "Courier New", monospace';
+    ctx.fillStyle = b.color;
+    ctx.fillText(b.sub, x + 72, y + 54);
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
 // ── Tutorial hints — small fade-in/out tooltips for first-run players ──────
 const TUT_KEY = 'crusade_tutorial_seen';
 let tutSeen = (function(){ try { return new Set(JSON.parse(localStorage.getItem(TUT_KEY)||'[]')); } catch(e){ return new Set(); } })();
@@ -5175,6 +5256,7 @@ function update(dt) {
   checkAchievements();
   maybeUnlockNextChampion();
   updateAchievementToasts(dt);
+  updateEventBanners(dt);
 
   // Warp transition: pull every remaining (non-boss) enemy into the player + despawn them.
   // Visually + thematically this is the "transport to a new area" reset.
@@ -8202,6 +8284,7 @@ function render() {
   // HUD
   drawHUD(CW,CH);
   drawHint(CW,CH);
+  drawEventBanners(CW,CH);
   drawAchievementToasts(CW,CH);
 }
 

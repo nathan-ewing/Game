@@ -9235,15 +9235,26 @@ function drawHUD(CW,CH) {
   ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 6;
   ctx.fillText(`◆ Shot  dmg ${P.sDmg}  pierce ${P.sPierce}`, 22, wy+33);
   ctx.shadowBlur = 0;
-  let extra = '';
-  if(P.orbs)      extra += `  ◉ ${P.orbs} Orb${P.orbs>1?'s':''}`;
-  if(P.auraDmg)   extra += `  ✺ Aura ${P.auraDmg}`;
-  if(P.strikeDmg) extra += `  ▼ Strike ${P.strikeDmg}`;
-  if(P.shield)    extra += `  ⬡ Shield -${(P.shield * 8)}%`;
-  if (extra) {
-    ctx.fillStyle = '#ff0080';
-    ctx.shadowColor = '#ff0080'; ctx.shadowBlur = 6;
-    ctx.fillText(extra.trim(), 22, wy+51);
+  // Extra-stat row — each token renders in the color of its in-game effect,
+  // so the readout doubles as a legend for what's actually painted on screen.
+  //   Aura  → deep magenta-purple, matches the aura ring at line ~8063
+  //   Shield → pale icy cyan, matches the Plasma Shield halo at line ~8417
+  //   Orbs / Strike → stay neon pink (no dedicated visual to match yet)
+  const tokens = [];
+  if (P.orbs)      tokens.push({ text:`◉ ${P.orbs} Orb${P.orbs>1?'s':''}`, color:'#ff0080' });
+  if (P.auraDmg)   tokens.push({ text:`✺ Aura ${P.auraDmg}`,                color:'#b400ff' });
+  if (P.strikeDmg) tokens.push({ text:`▼ Strike ${P.strikeDmg}`,            color:'#ff0080' });
+  if (P.shield)    tokens.push({ text:`⬡ Shield -${(P.shield * 8)}%`,       color:'#8ce6ff' });
+  if (tokens.length) {
+    ctx.font = '11px "Courier New", monospace';
+    let tx = 22;
+    for (const t of tokens) {
+      ctx.fillStyle   = t.color;
+      ctx.shadowColor = t.color;
+      ctx.shadowBlur  = 6;
+      ctx.fillText(t.text, tx, wy+51);
+      tx += ctx.measureText(t.text).width + 12; // breathing room between tokens
+    }
     ctx.shadowBlur = 0;
   }
   ctx.fillStyle='#a070b0'; ctx.font='10px "Courier New", monospace';
